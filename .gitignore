@@ -1,0 +1,11 @@
+target/
+.idea/
+.vscode/
+*.iml
+report_*.html
+test_output/
+src/main/resources/games.log.*
+.DS_Store
+Thumbs.db
+checkstyle.xml
+checkstyle-suppressions.xml
