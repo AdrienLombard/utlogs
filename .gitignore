@@ -9,3 +9,4 @@ src/main/resources/games.log.*
 Thumbs.db
 checkstyle.xml
 checkstyle-suppressions.xml
+.agent/
