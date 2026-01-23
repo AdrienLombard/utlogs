@@ -86,8 +86,8 @@ public final class LogReader {
     /** Marker for team score events. */
     private static final String TEAM_SCORE = "red:";
 
-    /** Index of damage value in hit pattern groups. */
-    private static final int HIT_DAMAGE_GROUP_INDEX = 4;
+    /** Index of weapon id in hit pattern groups. */
+    private static final int HIT_WEAPON_GROUP_INDEX = 4;
 
     /**
      * Parses a log file and extracts all game sessions.
@@ -98,6 +98,8 @@ public final class LogReader {
      */
     /** Minimum game duration in seconds to be included in the report. */
     private static final int MIN_GAME_DURATION = 30;
+
+    private final DamageManager damageManager = DamageManager.getInstance();
 
     /**
      * Parses a log file and extracts all game sessions.
@@ -299,19 +301,19 @@ public final class LogReader {
         if (matcher.find()) {
             String attackerName = matcher.group(5);
             String targetName = matcher.group(6);
-            int damage = Integer.parseInt(matcher.group(HIT_DAMAGE_GROUP_INDEX));
+            String bodyPart = matcher.group(7);
+            String weaponId = matcher.group(HIT_WEAPON_GROUP_INDEX);
+            int damage = damageManager.getDamage(weaponId, bodyPart);
 
             if (!attackerName.equals(targetName) && !attackerName.equals(WORLD_KILL_NAME)) {
                 Player attacker = game.getPlayerByName(attackerName);
-                attacker.addHitGiven();
-                attacker.addDamageGiven(damage);
 
-                // Extract body part from the full line text
-                // Format: "Hit: X Y Z W: PlayerA hit PlayerB in the BodyPart"
-                String bodyPart = extractBodyPart(line);
                 if (bodyPart != null) {
                     attacker.addHitToBodyPart(bodyPart);
                 }
+
+                attacker.addHitGiven();
+                attacker.addDamageGiven(damage);
             }
             game.getPlayerByName(targetName).addHitReceived();
             game.getPlayerByName(targetName).addDamageReceived(damage);
