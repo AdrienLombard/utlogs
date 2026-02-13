@@ -24,7 +24,7 @@ class LogReaderTest {
             writer.write("  1:05 Kill: 1 0 7: Player2 killed Player1 by MOD_ROCKET\n");
             writer.write("  1:10 Kill: 1022 0 19: <world> killed Player1 by MOD_FALLING\n");
             // Add Hit
-            writer.write("  1:15 Hit: 1 0 1 20: Player2 hit Player1\n");
+            writer.write("  1:15 Hit: 1 0 1 17: Player2 hit Player1 in the Kevlar\n");
             // Add Flag
             writer.write("  1:20 Flag: 0 2: Player1 captured flag\n");
             writer.write("  1:25 Flag: 1 1: Player2 returned flag\n");
@@ -58,6 +58,66 @@ class LogReaderTest {
         assertEquals(1, p2.getFlagReturns());
         assertEquals(1, p2.getHitsGiven());
         assertEquals(20, p2.getDamageGiven());
+    }
+
+    @Test
+    public void testFallbackScores() throws IOException {
+        File tempLog = File.createTempFile("test_fallback_scores", ".log");
+        tempLog.deleteOnExit();
+
+        try (FileWriter writer = new FileWriter(tempLog)) {
+            writer.write("  0:00 InitGame: \\g_gametype\\7\\mapname\\ut4_fallback\n");
+            writer.write("  0:00 ClientUserinfoChanged: 0 n\\Player1\\t\\1\n");
+
+            // Player1 gets 2 kills
+            writer.write("  1:00 Kill: 0 1 7: Player1 killed Player2 by MOD_ROCKET\n");
+            writer.write("  1:10 Kill: 0 1 7: Player1 killed Player2 by MOD_ROCKET\n");
+
+            // Game ends abruptly without score lines
+            writer.write("  2:00 ShutdownGame:\n");
+        }
+
+        LogReader reader = new LogReader();
+        List<Game> games = reader.parse(tempLog.getAbsolutePath());
+
+        assertEquals(1, games.size());
+        Game game = games.get(0);
+        Player p1 = game.getPlayerById("0");
+
+        // Score should be equal to kills (2) because of fallback logic
+        assertEquals(2, p1.getScore(), "Fallback score should equal kills");
+    }
+
+    @Test
+    public void testIgnoredWeapon() throws IOException {
+        File tempLog = File.createTempFile("test_ignored_weapon", ".log");
+        tempLog.deleteOnExit();
+
+        try (FileWriter writer = new FileWriter(tempLog)) {
+            writer.write("  0:00 InitGame: \\g_gametype\\7\\mapname\\ut4_ignore\n");
+            writer.write("  0:00 ClientUserinfoChanged: 0 n\\Player1\\t\\1\n");
+            writer.write("  0:00 ClientUserinfoChanged: 1 n\\Player2\\t\\2\n");
+
+            // Regular kill
+            writer.write("  1:00 Kill: 0 1 7: Player1 killed Player2 by MOD_ROCKET\n");
+
+            // Kicked "kill" (should be ignored)
+            writer.write("  1:05 Kill: 1022 1 24: <world> killed Player2 by UT_MOD_KICKED\n");
+
+            writer.write("  2:00 Exit: Timelimit hit.\n");
+            writer.write("  2:00 score: 1 client: 0\n");
+        }
+
+        LogReader reader = new LogReader();
+        List<Game> games = reader.parse(tempLog.getAbsolutePath());
+
+        assertEquals(1, games.size());
+        Game game = games.get(0);
+
+        // Player2 should have 1 death (from Player1), the kicked "death" should be
+        // ignored
+        Player p2 = game.getPlayerById("1");
+        assertEquals(1, p2.getDeaths());
     }
 
     @Test

@@ -25,7 +25,8 @@ public final class LogReader {
      * Pattern to match hit events in the format "Hit: attackerId targetId hits
      * damage:".
      */
-    private static final Pattern HIT_PATTERN = Pattern.compile("Hit: (\\d+) (\\d+) (\\d+) (\\d+): (.*?) hit (.*) in the (.*)");
+    private static final Pattern HIT_PATTERN = Pattern
+            .compile("Hit: (\\d+) (\\d+) (\\d+) (\\d+): (.*?) hit (.*) in the (.*)");
 
     /** Pattern to match flag events in the format "Flag: playerId actionId:". */
     private static final Pattern FLAG_PATTERN = Pattern.compile("Flag: (\\d+) (\\d+):");
@@ -49,6 +50,9 @@ public final class LogReader {
 
     /** Weapon ID representing flag explosion kills. */
     private static final String FLAG_EXPLOSION_ID = "39";
+
+    /** Weapon name representing admin kick (not a real kill). */
+    private static final String MOD_KICKED_NAME = "UT_MOD_KICKED";
 
     /** Key for extracting map name from InitGame line. */
     private static final String MAPNAME_KEY = "mapname";
@@ -156,6 +160,12 @@ public final class LogReader {
             games.removeIf(game -> game.getTotalKills() <= 0 || !isCaptureTheFlag(game)
                     || game.getDurationSeconds() < MIN_GAME_DURATION);
 
+            // Compute fallback scores for games where score lines were missing
+            // (e.g. tied games ending with ShutdownGame without Exit)
+            for (Game game : games) {
+                computeFallbackScores(game);
+            }
+
         }
         return games;
     }
@@ -257,9 +267,16 @@ public final class LogReader {
             boolean isWorldKill = WORLD_KILL_ID.equals(killerId) || "<world>".equals(killerName)
                     || "<non-client>".equals(killerName);
 
+            String weaponName = matcher.group(6);
+
+            if (MOD_KICKED_NAME.equals(weaponName)) {
+                return;
+            }
+
             if (isWorldKill) {
                 victim.addKilledByWorld();
-            } else if (!MOD_CHANGE_TEAM_ID.equals(weaponId) && !FLAG_EXPLOSION_ID.equals(weaponId)) {
+            } else if (!MOD_CHANGE_TEAM_ID.equals(weaponId) && !FLAG_EXPLOSION_ID.equals(weaponId)
+                    && !MOD_KICKED_NAME.equals(weaponName)) {
                 if (killerId.equals(victimId) || killerName.equals(victimName)) {
                     // Suicide
                     victim.addSuicide();
@@ -282,7 +299,6 @@ public final class LogReader {
                     victim.addDeathBy(killer.getName());
 
                     // Track weapon usage
-                    String weaponName = matcher.group(6); // Group 6 is the weapon name
                     killer.addKillWithWeapon(weaponName);
                 }
             }
@@ -391,6 +407,43 @@ public final class LogReader {
             int blueScore = Integer.parseInt(matcher.group(2));
             game.setRedScore(redScore);
             game.setBlueScore(blueScore);
+        }
+    }
+
+    /**
+     * Computes fallback scores for players in games where score lines were missing.
+     * This handles tied/interrupted games that end with ShutdownGame without Exit.
+     * Only applies when ALL players have a score of 0 (indicating missing score
+     * lines).
+     *
+     * @param game the game to compute fallback scores for
+     */
+    private void computeFallbackScores(final Game game) {
+        // Check if all players have score 0 (indicating no score lines were present)
+        boolean allZero = game.getPlayers().values().stream()
+                .filter(p -> p.getTeam() != Team.SPECTATOR)
+                .allMatch(p -> p.getScore() == 0);
+
+        if (!allZero) {
+            return;
+        }
+
+        // Check if any player actually participated (has kills or deaths)
+        boolean hasActivity = game.getPlayers().values().stream()
+                .filter(p -> p.getTeam() != Team.SPECTATOR)
+                .anyMatch(p -> p.getKills() > 0 || p.getDeaths() > 0);
+
+        if (!hasActivity) {
+            return;
+        }
+
+        // Use kills as fallback score — the most visible and fair approximation
+        // (real UT4 scores include assists, hits, damage, etc. that aren't decomposable
+        // from logs)
+        for (Player player : game.getPlayers().values()) {
+            if (player.getTeam() != Team.SPECTATOR) {
+                player.setScore(player.getKills());
+            }
         }
     }
 }

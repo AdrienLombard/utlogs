@@ -21,6 +21,7 @@ public enum Weapon {
     M4("19"),
     UNKNOWN21("21"),
     UNKNOWN22("22"),
+    KICKED("24"),
     UNKNOWN("-1");
 
     private final String id;
@@ -30,12 +31,12 @@ public enum Weapon {
     }
 
     public static Weapon fromValue(String id) {
-        for (Weapon weapon: Weapon.values()) {
+        for (Weapon weapon : Weapon.values()) {
             if (weapon.id.equals(id)) {
                 return weapon;
             }
         }
-        throw new IllegalArgumentException(id);
+        throw new IllegalArgumentException("Unknown weapon id: " + id);
     }
 
 }

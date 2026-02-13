@@ -424,53 +424,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const ufoName = "UFO";
         const tentEmoji = " ⛺";
 
-        function safeUpdate(element) {
-            let updated = false;
-            for (let i = 0; i < element.childNodes.length; i++) {
-                const node = element.childNodes[i];
-                if (node.nodeType === 3) { // Node.TEXT_NODE
-                    const text = node.textContent;
-                    // Handle strict match
-                    if (text.trim() === ufoName) {
-                        // Replace text content of the node only
-                        node.textContent = text.replace(ufoName, ufoName + tentEmoji);
-                        updated = true;
-                    }
-                    // Handle "UFO (123)" case
-                    else if (text.includes(ufoName + " (")) {
-                        node.textContent = text.replace(ufoName, ufoName + tentEmoji);
-                        updated = true;
-                    }
-                }
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while (node = walker.nextNode()) {
+            const text = node.textContent;
+            if (text.includes(ufoName) && !text.includes(tentEmoji)) {
+                node.textContent = text.replaceAll(ufoName, ufoName + tentEmoji);
             }
-            return updated;
         }
-
-        // Target specific elements containing player names
-        const selectors = [
-            '.player-name-link',     // Main table links
-            '.user-tab-link',        // User tab buttons
-            '.subtablinks',          // Subtab links
-            'h2',                    // Headers
-            '.tabcontent h2'         // Tab content headers
-        ];
-
-        selectors.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(el => {
-                if ((el.textContent.includes(ufoName)) && !el.textContent.includes(tentEmoji)) {
-                    safeUpdate(el);
-                }
-            });
-        });
-
-        // Also update table cells that are just the name
-        const tds = document.querySelectorAll('td');
-        tds.forEach(td => {
-            if (td.textContent.includes(ufoName) && !td.textContent.includes(tentEmoji)) {
-                safeUpdate(td);
-            }
-        });
     }
 });
 

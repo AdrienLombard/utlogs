@@ -5,6 +5,7 @@ import j2html.tags.ContainerTag;
 import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
 import j2html.tags.specialized.ScriptTag;
+import j2html.tags.specialized.TrTag;
 import java.io.BufferedWriter;
 
 import java.io.IOException;
@@ -19,6 +20,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class HtmlGenerator {
+    private static final double PERCENTAGE_FACTOR = 100.0;
+    private static final int MIN_KILLS_FOR_SHARPSHOOTER = 10;
+
     /**
      * Assigns distinctive HSL colors to all unique players.
      * Uses golden angle to ensure colors are well-distributed.
@@ -432,8 +436,8 @@ public class HtmlGenerator {
                                                     case "sharpshooter":
                                                         icon = "🎯";
                                                         break;
-                                                    case "champion":
-                                                        icon = "🏆";
+                                                    case "flag":
+                                                        icon = "🇫🇷";
                                                         break;
                                                     case "grimReaper":
                                                         icon = "💀";
@@ -620,7 +624,7 @@ public class HtmlGenerator {
 
         // Best K/D (min 10 kills)
         String sharpshooter = totalKills.entrySet().stream()
-                .filter(e -> e.getValue() >= 10)
+                .filter(e -> e.getValue() >= MIN_KILLS_FOR_SHARPSHOOTER)
                 .max((e1, e2) -> {
                     double kd1 = (double) e1.getValue() / Math.max(1, totalDeaths.getOrDefault(e1.getKey(), 1));
                     double kd2 = (double) e2.getValue() / Math.max(1, totalDeaths.getOrDefault(e2.getKey(), 1));
@@ -639,7 +643,7 @@ public class HtmlGenerator {
         }
         if (mostFlags != null) {
             playerAchievements.computeIfAbsent(mostFlags, k -> new ArrayList<>())
-                    .add("champion");
+                    .add("flag");
         }
         if (grimReaper != null) {
             playerAchievements.computeIfAbsent(grimReaper, k -> new ArrayList<>())
@@ -671,12 +675,6 @@ public class HtmlGenerator {
 
     /**
      * Creates a body hit diagram showing the distribution of hits by body part.
-     *
-     * @param bodyPartHits map of body part names to hit counts
-     * @return HTML div containing the body diagram
-     */
-    /**
-     * Creates a body hit diagram showing the distribution of hits by body part.
      * Uses a "Tactical HUD" layout with leader lines connecting stats to body
      * parts.
      *
@@ -697,10 +695,10 @@ public class HtmlGenerator {
         int armsHits = bodyPartHits.getOrDefault("Arms", 0);
         int legsHits = bodyPartHits.getOrDefault("Legs", 0);
 
-        double helmetPct = totalHits > 0 ? (helmetHits * 100.0 / totalHits) : 0;
-        double kevlarPct = totalHits > 0 ? (kevlarHits * 100.0 / totalHits) : 0;
-        double armsPct = totalHits > 0 ? (armsHits * 100.0 / totalHits) : 0;
-        double legsPct = totalHits > 0 ? (legsHits * 100.0 / totalHits) : 0;
+        double helmetPct = totalHits > 0 ? (helmetHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double kevlarPct = totalHits > 0 ? (kevlarHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double armsPct = totalHits > 0 ? (armsHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double legsPct = totalHits > 0 ? (legsHits * PERCENTAGE_FACTOR / totalHits) : 0;
 
         return div(
                 p(text(Messages.get("bodyHit.totalHits", String.valueOf(totalHits))))
@@ -741,49 +739,48 @@ public class HtmlGenerator {
     }
 
     private String createHudSvg() {
-        return "<svg class=\"hud-svg\" viewBox=\"0 0 300 400\" xmlns=\"http://www.w3.org/2000/svg\">" +
-                "  <defs>" +
-                "    <filter id=\"glow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">" +
-                "      <feGaussianBlur stdDeviation=\"2\" result=\"blur\"/>" +
-                "      <feComposite in=\"SourceGraphic\" in2=\"blur\" operator=\"over\"/>" +
-                "    </filter>" +
-                "  </defs>" +
+        return "<svg class=\"hud-svg\" viewBox=\"0 0 300 400\" xmlns=\"http://www.w3.org/2000/svg\">"
+                + "  <defs>"
+                + "    <filter id=\"glow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">"
+                + "      <feGaussianBlur stdDeviation=\"2\" result=\"blur\"/>"
+                + "      <feComposite in=\"SourceGraphic\" in2=\"blur\" operator=\"over\"/>"
+                + "    </filter>"
+                + "  </defs>"
+                + "  <!-- Silhouette (Ghostly Wireframe) -->"
+                + "  <g class=\"silhouette-group\" filter=\"url(#glow)\">"
+                + "    <ellipse cx=\"150\" cy=\"50\" rx=\"25\" ry=\"30\" "
+                + "class=\"body-part body-head\" data-part=\"head\" />"
+                + "    <path d=\"M120,85 L180,85 L170,220 L130,220 Z\" "
+                + "class=\"body-part body-torso\" data-part=\"torso\" />"
+                + "    <rect x=\"80\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" "
+                + "class=\"body-part body-arms\" data-part=\"arms\" />"
+                + "    <rect x=\"190\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" "
+                + "class=\"body-part body-arms\" data-part=\"arms\" />"
+                + "    <rect x=\"125\" y=\"225\" width=\"22\" height=\"130\" rx=\"5\" "
+                + "class=\"body-part body-legs\" data-part=\"legs\" />"
+                + "    <rect x=\"153\" y=\"225\" width=\"22\" height=\"130\" rx=\"5\" "
+                + "class=\"body-part body-legs\" data-part=\"legs\" />"
+                + "  </g>"
 
-                "  <!-- Silhouette (Ghostly Wireframe) -->" +
-                "  <g class=\"silhouette-group\" filter=\"url(#glow)\">" +
-                "    <ellipse cx=\"150\" cy=\"50\" rx=\"25\" ry=\"30\" class=\"body-part body-head\" data-part=\"head\" />"
-                +
-                "    <path d=\"M120,85 L180,85 L170,220 L130,220 Z\" class=\"body-part body-torso\" data-part=\"torso\" />"
-                +
-                "    <rect x=\"80\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" class=\"body-part body-arms\" data-part=\"arms\" />"
-                +
-                "    <rect x=\"190\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" class=\"body-part body-arms\" data-part=\"arms\" />"
-                +
-                "    <rect x=\"125\" y=\"225\" width=\"22\" height=\"130\" rx=\"5\" class=\"body-part body-legs\" data-part=\"legs\" />"
-                +
-                "    <rect x=\"153\" y=\"225\" width=\"22\" height=\"130\" rx=\"5\" class=\"body-part body-legs\" data-part=\"legs\" />"
-                +
-                "  </g>" +
+                + "  <!-- Leader Lines (Connecting text areas to body parts) -->"
+                + "  <g class=\"leader-lines\">"
+                + "    <!-- Head (Right side) -->"
+                + "    <polyline points=\"175,50 220,50 280,50\" class=\"line line-head\" />"
+                + "    <circle cx=\"175\" cy=\"50\" r=\"3\" class=\"dot\" />"
 
-                "  <!-- Leader Lines (Connecting text areas to body parts) -->" +
-                "  <g class=\"leader-lines\">" +
-                "    <!-- Head (Right side) -->" +
-                "    <polyline points=\"175,50 220,50 280,50\" class=\"line line-head\" />" +
-                "    <circle cx=\"175\" cy=\"50\" r=\"3\" class=\"dot\" />" +
+                + "    <!-- Torso (Right side) -->"
+                + "    <polyline points=\"170,140 220,140 280,140\" class=\"line line-torso\" />"
+                + "    <circle cx=\"170\" cy=\"140\" r=\"3\" class=\"dot\" />"
 
-                "    <!-- Torso (Right side) -->" +
-                "    <polyline points=\"170,140 220,140 280,140\" class=\"line line-torso\" />" +
-                "    <circle cx=\"170\" cy=\"140\" r=\"3\" class=\"dot\" />" +
+                + "    <!-- Arms (Left side - pointing to left arm) -->"
+                + "    <polyline points=\"80,140 40,140 10,140\" class=\"line line-arms\" />"
+                + "    <circle cx=\"80\" cy=\"140\" r=\"3\" class=\"dot\" />"
 
-                "    <!-- Arms (Left side - pointing to left arm) -->" +
-                "    <polyline points=\"80,140 40,140 10,140\" class=\"line line-arms\" />" +
-                "    <circle cx=\"80\" cy=\"140\" r=\"3\" class=\"dot\" />" +
-
-                "    <!-- Legs (Right side - pointing to right thigh/knee) -->" +
-                "    <polyline points=\"175,280 220,280 280,280\" class=\"line line-legs\" />" +
-                "    <circle cx=\"175\" cy=\"280\" r=\"3\" class=\"dot\" />" +
-                "  </g>" +
-                "</svg>";
+                + "    <!-- Legs (Right side - pointing to right thigh/knee) -->"
+                + "    <polyline points=\"175,280 220,280 280,280\" class=\"line line-legs\" />"
+                + "    <circle cx=\"175\" cy=\"280\" r=\"3\" class=\"dot\" />"
+                + "  </g>"
+                + "</svg>";
     }
 
     private ContainerTag<?> thHeader(String title, int colIndex, String tableId) {
@@ -794,10 +791,8 @@ public class HtmlGenerator {
                 .withClass("clickable-header");
     }
 
-    DomContent generateScoreTableHTML(List<Game> gamesToAggregate, String tableId,
-            Map<String, String> playerColors, boolean showPerGameStats, Map<String, List<String>> achievements) {
-        Map<String, Map<String, Double>> aggregated = new HashMap<>();
-        Map<String, Integer> gamesPlayed = new HashMap<>();
+    private void aggregateStats(List<Game> gamesToAggregate, Map<String, Integer> gamesPlayed,
+            Map<String, Map<String, Double>> aggregated) {
         for (Game game : gamesToAggregate) {
             for (Player p : game.getPlayers().values()) {
                 // Skip spectators
@@ -806,15 +801,7 @@ public class HtmlGenerator {
                 }
                 String name = p.getName();
                 gamesPlayed.put(name, gamesPlayed.getOrDefault(name, 0) + 1);
-            }
-        }
-        for (Game game : gamesToAggregate) {
-            for (Player p : game.getPlayers().values()) {
-                // Skip spectators
-                if (p.getTeam() == Team.SPECTATOR) {
-                    continue;
-                }
-                String name = p.getName();
+
                 aggregated.putIfAbsent(name, new HashMap<>());
                 Map<String, Double> stats = aggregated.get(name);
                 stats.merge("score", (double) p.getScore(), Double::sum);
@@ -834,7 +821,10 @@ public class HtmlGenerator {
                 stats.merge("maxDeathStreak", (double) p.getMaxDeathStreak(), Math::max);
             }
         }
-        // Sort by Score/Game descending
+    }
+
+    private List<Map.Entry<String, Map<String, Double>>> sortAggregatedStats(
+            Map<String, Map<String, Double>> aggregated, Map<String, Integer> gamesPlayed) {
         List<Map.Entry<String, Map<String, Double>>> sortedEntries = new ArrayList<>(aggregated.entrySet());
         sortedEntries.sort((e1, e2) -> {
             String name1 = e1.getKey();
@@ -845,6 +835,19 @@ public class HtmlGenerator {
             double scorePerGame2 = games2 == 0 ? 0 : e2.getValue().getOrDefault("score", 0.0) / games2;
             return Double.compare(scorePerGame2, scorePerGame1); // Descending
         });
+        return sortedEntries;
+    }
+
+    DomContent generateScoreTableHTML(List<Game> gamesToAggregate, String tableId,
+            Map<String, String> playerColors, boolean showPerGameStats,
+            Map<String, List<String>> achievements) {
+        Map<String, Map<String, Double>> aggregated = new HashMap<>();
+        Map<String, Integer> gamesPlayed = new HashMap<>();
+
+        aggregateStats(gamesToAggregate, gamesPlayed, aggregated);
+
+        // Sort by Score/Game descending
+        List<Map.Entry<String, Map<String, Double>>> sortedEntries = sortAggregatedStats(aggregated, gamesPlayed);
 
         // Determine if this is the main scores table to apply default sorting indicator
         boolean isMainTable = "scoresTable".equals(tableId);
@@ -889,116 +892,8 @@ public class HtmlGenerator {
                 table(
                         thead(tr(headers.toArray(new DomContent[0]))),
                         tbody(
-                                each(sortedEntries, entry -> {
-                                    String name = entry.getKey();
-                                    Map<String, Double> stats = entry.getValue();
-                                    int gamesPlayedByPlayer = gamesPlayed.getOrDefault(name, 0);
-                                    double totalScore = stats.getOrDefault("score", 0.0);
-                                    double totalKills = stats.getOrDefault("kills", 0.0);
-                                    double totalDeaths = stats.getOrDefault("deaths", 0.0);
-                                    double flagReturns = stats.getOrDefault("flagReturns", 0.0);
-                                    String playerColor = playerColors.getOrDefault(name, "hsl(0, 0%, 50%)");
-
-                                    List<DomContent> cells = new ArrayList<>();
-
-                                    // Build player name cell with badges below
-                                    DivTag nameWrapper = div();
-
-                                    // Name with color square on same line
-                                    DivTag nameLine = div(
-                                            getColorSquare(playerColor),
-                                            text(name)).withClass("player-name-line");
-                                    nameWrapper.with(nameLine);
-
-                                    // Add badges if player has achievements (displayed below name)
-                                    List<String> playerBadges = achievements.getOrDefault(name,
-                                            Collections.emptyList());
-                                    if (!playerBadges.isEmpty()) {
-                                        DivTag badgesLine = div().withClass("player-badges-line");
-                                        for (String badgeKey : playerBadges) {
-                                            // Map badge keys to icons
-                                            String icon = "";
-                                            switch (badgeKey) {
-                                                case "topKiller":
-                                                    icon = "👑";
-                                                    break;
-                                                case "sharpshooter":
-                                                    icon = "🎯";
-                                                    break;
-                                                case "champion":
-                                                    icon = "🏆";
-                                                    break;
-                                                case "grimReaper":
-                                                    icon = "💀";
-                                                    break;
-                                                case "tank":
-                                                    icon = "🛡️";
-                                                    break;
-                                                case "theBrain":
-                                                    icon = "🧠";
-                                                    break;
-                                                case "quechua":
-                                                    icon = "⛺";
-                                                    break;
-                                                case "lemming":
-                                                    icon = "🐹";
-                                                    break;
-                                                case "bomberman":
-                                                    icon = "💣";
-                                                    break;
-                                            }
-
-                                            String badgeName = Messages.get("badge." + badgeKey);
-                                            String badgeDesc = Messages.get("badge." + badgeKey + ".desc");
-
-                                            badgesLine.with(
-                                                    span(text(icon + " " + badgeName))
-                                                            .withClass("badge")
-                                                            .withTitle(badgeDesc));
-                                        }
-                                        nameWrapper.with(badgesLine);
-                                    }
-
-                                    cells.add(td(nameWrapper)
-                                            .withClass("nowrap player-name-link")
-                                            .attr("onclick", "openPlayerInUsersTab('"
-                                                    + name.replace("'", "\\'") + "')"));
-                                    cells.add(td(String.valueOf((int) totalScore)));
-
-                                    if (showPerGameStats) {
-                                        cells.add(td(String.valueOf(gamesPlayedByPlayer)));
-                                    }
-
-                                    cells.add(td(String.valueOf((int) totalKills)));
-                                    cells.add(td(String.valueOf((int) totalDeaths)));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("suicides", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("worldKills", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("flagCaptures", 0.0).intValue())));
-                                    cells.add(td(String.valueOf((int) flagReturns)));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("teamKills", 0.0).intValue())));
-                                    cells.add(td(
-                                            String.valueOf(stats.getOrDefault("killedByTeammates", 0.0).intValue())));
-
-                                    if (showPerGameStats) {
-                                        cells.add(td(String.format("%.2f", gamesPlayedByPlayer == 0 ? 0.0
-                                                : totalScore / gamesPlayedByPlayer)));
-                                        cells.add(td(String.format("%.2f", gamesPlayedByPlayer == 0 ? 0.0
-                                                : totalKills / gamesPlayedByPlayer)));
-                                        cells.add(td(String.format("%.2f", gamesPlayedByPlayer == 0 ? 0.0
-                                                : flagReturns / gamesPlayedByPlayer)));
-                                    }
-
-                                    cells.add(td(String.format("%.2f", totalDeaths == 0 ? totalKills
-                                            : totalKills / totalDeaths)));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("maxKillStreak", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("maxDeathStreak", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("hitsGiven", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("hitsReceived", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("damageGiven", 0.0).intValue())));
-                                    cells.add(td(String.valueOf(stats.getOrDefault("damageReceived", 0.0).intValue())));
-
-                                    return tr(cells.toArray(new DomContent[0]));
-                                })))
+                                each(sortedEntries, entry -> createPlayerRow(entry, gamesPlayed, playerColors,
+                                        achievements, showPerGameStats))))
                         .withId(tableId))
                 .withClass("table-wrapper");
     }
@@ -1028,7 +923,54 @@ public class HtmlGenerator {
         // --- Calculate Global Stats for Global Charts ---
         Map<String, Double> globalKD = new HashMap<>();
         Map<String, Integer> globalFlags = new HashMap<>();
+        calculateGlobalStats(games, allPlayerNames, globalKD, globalFlags);
 
+        // --- Generate Global K/D Chart ---
+        createGlobalKDChartScript(script, globalKD, playerColors);
+
+        // --- Generate Global Flags Chart ---
+        if (!globalFlags.isEmpty()) {
+            createGlobalFlagsChartScript(script, globalFlags, playerColors);
+        }
+
+        // Set global Chart.js defaults for dark theme
+        script.append("  Chart.defaults.color = '#e0e0e0';\n");
+        script.append("  Chart.defaults.borderColor = '#444';\n");
+
+        serializePlayerStats(script, games, allPlayerNames);
+
+        // Serialize player colors
+        script.append("  window.playerColors = {\n");
+        int colorIndex = 0;
+        for (Map.Entry<String, String> entry : playerColors.entrySet()) {
+            if (colorIndex > 0) {
+                script.append(",\n");
+            }
+            script.append("    '").append(entry.getKey().replace("'", "\\'"))
+                    .append("': '").append(entry.getValue()).append("'");
+            colorIndex++;
+        }
+        script.append("\n  };\n");
+
+        // Call the chart initialization function
+        script.append("  initializeCharts();\n");
+        script.append("});\n");
+        return
+
+        script(rawHtml(script.toString()));
+    }
+
+    private String loadResource(String resourceName) throws IOException {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            if (is == null) {
+                throw new IOException("Resource not found: " + resourceName);
+            }
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private void calculateGlobalStats(List<Game> games, List<String> allPlayerNames,
+            Map<String, Double> globalKD, Map<String, Integer> globalFlags) {
         for (String playerName : allPlayerNames) {
             int kills = 0;
             int deaths = 0;
@@ -1048,8 +990,10 @@ public class HtmlGenerator {
                 globalFlags.put(playerName, flags);
             }
         }
+    }
 
-        // --- Generate Global K/D Chart ---
+    private void createGlobalKDChartScript(StringBuilder script, Map<String, Double> globalKD,
+            Map<String, String> playerColors) {
         script.append("  const kdCtx = document.getElementById('globalKDChart');\n");
         script.append("  if (kdCtx) {\n");
         script.append("    new Chart(kdCtx, {\n");
@@ -1087,54 +1031,51 @@ public class HtmlGenerator {
         script.append("      }\n");
         script.append("    });\n");
         script.append("  }\n");
+    }
 
-        // --- Generate Global Flags Chart ---
-        if (!globalFlags.isEmpty()) {
-            script.append("  const flagsCtx = document.getElementById('globalFlagsChart');\n");
-            script.append("  if (flagsCtx) {\n");
-            script.append("    new Chart(flagsCtx, {\n");
-            script.append("      type: 'bar',\n");
-            script.append("      data: {\n");
-            script.append("        labels: [");
-            // Sort Flags by value descending
-            List<Map.Entry<String, Integer>> sortedFlags = new ArrayList<>(globalFlags.entrySet());
-            sortedFlags.sort(Map.Entry.<String, Integer>comparingByValue().reversed());
-            for (int i = 0; i < sortedFlags.size(); i++) {
-                script.append("'").append(sortedFlags.get(i).getKey().replace("'", "\\'")).append("'")
-                        .append(i < sortedFlags.size() - 1 ? ", " : "");
-            }
-            script.append("],\n");
-            script.append("        datasets: [{\n");
-            script.append("          label: '").append(Messages.get("header.flagsCaptured")).append("',\n");
-            script.append("          data: [");
-            for (int i = 0; i < sortedFlags.size(); i++) {
-                script.append(sortedFlags.get(i).getValue())
-                        .append(i < sortedFlags.size() - 1 ? ", " : "");
-            }
-            script.append("],\n");
-            script.append("          backgroundColor: [");
-            for (int i = 0; i < sortedFlags.size(); i++) {
-                script.append("'")
-                        .append(playerColors.getOrDefault(sortedFlags.get(i).getKey(), "hsl(0,0%,50%)"))
-                        .append("'").append(i < sortedFlags.size() - 1 ? ", " : "");
-            }
-            script.append("]\n");
-            script.append("        }]\n");
-            script.append("      },\n");
-            script.append("      options: { \n");
-            script.append("        responsive: true, \n");
-            script.append("        maintainAspectRatio: false, \n");
-            script.append("        plugins: { legend: { display: false } } \n");
-            script.append("      }\n");
-            script.append("    });\n");
-            script.append("  }\n");
+    private void createGlobalFlagsChartScript(StringBuilder script, Map<String, Integer> globalFlags,
+            Map<String, String> playerColors) {
+        script.append("  const flagsCtx = document.getElementById('globalFlagsChart');\n");
+        script.append("  if (flagsCtx) {\n");
+        script.append("    new Chart(flagsCtx, {\n");
+        script.append("      type: 'bar',\n");
+        script.append("      data: {\n");
+        script.append("        labels: [");
+        // Sort Flags by value descending
+        List<Map.Entry<String, Integer>> sortedFlags = new ArrayList<>(globalFlags.entrySet());
+        sortedFlags.sort(Map.Entry.<String, Integer>comparingByValue().reversed());
+        for (int i = 0; i < sortedFlags.size(); i++) {
+            script.append("'").append(sortedFlags.get(i).getKey().replace("'", "\\'")).append("'")
+                    .append(i < sortedFlags.size() - 1 ? ", " : "");
         }
+        script.append("],\n");
+        script.append("        datasets: [{\n");
+        script.append("          label: '").append(Messages.get("header.flagsCaptured")).append("',\n");
+        script.append("          data: [");
+        for (int i = 0; i < sortedFlags.size(); i++) {
+            script.append(sortedFlags.get(i).getValue())
+                    .append(i < sortedFlags.size() - 1 ? ", " : "");
+        }
+        script.append("],\n");
+        script.append("          backgroundColor: [");
+        for (int i = 0; i < sortedFlags.size(); i++) {
+            script.append("'")
+                    .append(playerColors.getOrDefault(sortedFlags.get(i).getKey(), "hsl(0,0%,50%)"))
+                    .append("'").append(i < sortedFlags.size() - 1 ? ", " : "");
+        }
+        script.append("]\n");
+        script.append("        }]\n");
+        script.append("      },\n");
+        script.append("      options: { \n");
+        script.append("        responsive: true, \n");
+        script.append("        maintainAspectRatio: false, \n");
+        script.append("        plugins: { legend: { display: false } } \n");
+        script.append("      }\n");
+        script.append("    });\n");
+        script.append("  }\n");
+    }
 
-        // Set global Chart.js defaults for dark theme
-        script.append("  Chart.defaults.color = '#e0e0e0';\n");
-        script.append("  Chart.defaults.borderColor = '#444';\n");
-
-        // Serialize player stats
+    private void serializePlayerStats(StringBuilder script, List<Game> games, List<String> allPlayerNames) {
         script.append("  window.playerStats = {};\n");
         for (String playerName : allPlayerNames) {
             Map<String, Integer> killsAgainst = new HashMap<>();
@@ -1160,7 +1101,7 @@ public class HtmlGenerator {
                         p.getDeathsByKiller()
                                 .forEach((k, v) -> deathsBy.merge(k, v, Integer::sum));
                         p.getKillsByWeapon()
-                                .forEach((k, v) -> weapons.merge(Messages.get("weapon." + k), v, Integer::sum));
+                                .forEach((k, v) -> weapons.merge(Messages.getWeaponName(k), v, Integer::sum));
                     }
                 }
             }
@@ -1212,59 +1153,149 @@ public class HtmlGenerator {
             // Add scoresPerGame array with map names
             script.append("    scoresPerGame: [");
             for (int i = 0; i < scoresPerGame.size(); i++) {
-                if (i > 0)
+                if (i > 0) {
                     script.append(", ");
+                }
                 Map<String, Object> gameData = scoresPerGame.get(i);
                 script.append("{ score: ").append(gameData.get("score"))
-                        .append(", map: '").append(((String) gameData.get("map")).replace("'", "\\'")).append("' }");
+                        .append(", map: '").append(((String) gameData.get("map")).replace("'", "\\'"))
+                        .append("' }");
             }
             script.append("],\n");
 
             // Add killsPerGame and deathsPerGame arrays
             script.append("    killsPerGame: [");
             for (int i = 0; i < killsPerGame.size(); i++) {
-                if (i > 0)
+                if (i > 0) {
                     script.append(", ");
+                }
                 script.append(killsPerGame.get(i));
             }
             script.append("],\n");
 
             script.append("    deathsPerGame: [");
             for (int i = 0; i < deathsPerGame.size(); i++) {
-                if (i > 0)
+                if (i > 0) {
                     script.append(", ");
+                }
                 script.append(deathsPerGame.get(i));
             }
             script.append("]\n");
 
             script.append("  };\n");
         }
-
-        // Serialize player colors
-        script.append("  window.playerColors = {\n");
-        int colorIndex = 0;
-        for (Map.Entry<String, String> entry : playerColors.entrySet()) {
-            if (colorIndex > 0) {
-                script.append(",\n");
-            }
-            script.append("    '").append(entry.getKey().replace("'", "\\'"))
-                    .append("': '").append(entry.getValue()).append("'");
-            colorIndex++;
-        }
-        script.append("\n  };\n");
-
-        // Call the chart initialization function
-        script.append("  initializeCharts();\n");
-        script.append("});\n");
-        return script(rawHtml(script.toString()));
     }
 
-    private String loadResource(String resourceName) throws IOException {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName)) {
-            if (is == null) {
-                throw new IOException("Resource not found: " + resourceName);
+    private TrTag createPlayerRow(Map.Entry<String, Map<String, Double>> entry,
+            Map<String, Integer> gamesPlayed, Map<String, String> playerColors,
+            Map<String, List<String>> achievements, boolean showPerGameStats) {
+        String name = entry.getKey();
+        Map<String, Double> stats = entry.getValue();
+        int gamesPlayedByPlayer = gamesPlayed.getOrDefault(name, 0);
+        double totalScore = stats.getOrDefault("score", 0.0);
+        double totalKills = stats.getOrDefault("kills", 0.0);
+        double totalDeaths = stats.getOrDefault("deaths", 0.0);
+        double flagReturns = stats.getOrDefault("flagReturns", 0.0);
+        String playerColor = playerColors.getOrDefault(name, "hsl(0, 0%, 50%)");
+
+        List<DomContent> cells = new ArrayList<>();
+
+        // Build player name cell with badges below
+        DivTag nameWrapper = div();
+
+        // Name with color square on same line
+        DivTag nameLine = div(
+                getColorSquare(playerColor),
+                text(name)).withClass("player-name-line");
+        nameWrapper.with(nameLine);
+
+        // Add badges if player has achievements (displayed below name)
+        List<String> playerBadges = achievements.getOrDefault(name,
+                Collections.emptyList());
+        if (!playerBadges.isEmpty()) {
+            DivTag badgesLine = div().withClass("player-badges-line");
+            for (String badgeKey : playerBadges) {
+                // Map badge keys to icons
+                String icon = "";
+                switch (badgeKey) {
+                    case "topKiller":
+                        icon = "👑";
+                        break;
+                    case "sharpshooter":
+                        icon = "🎯";
+                        break;
+                    case "flag":
+                        icon = "🇫🇷";
+                        break;
+                    case "grimReaper":
+                        icon = "💀";
+                        break;
+                    case "tank":
+                        icon = "🛡️";
+                        break;
+                    case "theBrain":
+                        icon = "🧠";
+                        break;
+                    case "quechua":
+                        icon = "⛺";
+                        break;
+                    case "lemming":
+                        icon = "🐹";
+                        break;
+                    case "bomberman":
+                        icon = "💣";
+                        break;
+                }
+
+                String badgeName = Messages.get("badge." + badgeKey);
+                String badgeDesc = Messages.get("badge." + badgeKey + ".desc");
+
+                badgesLine.with(
+                        span(text(icon + " " + badgeName))
+                                .withClass("badge")
+                                .withTitle(badgeDesc));
             }
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            nameWrapper.with(badgesLine);
         }
+
+        cells.add(td(nameWrapper)
+                .withClass("nowrap player-name-link")
+                .attr("onclick", "openPlayerInUsersTab('"
+                        + name.replace("'", "\\'") + "')"));
+        cells.add(td(String.valueOf((int) totalScore)));
+
+        if (showPerGameStats) {
+            cells.add(td(String.valueOf(gamesPlayedByPlayer)));
+        }
+
+        cells.add(td(String.valueOf((int) totalKills)));
+        cells.add(td(String.valueOf((int) totalDeaths)));
+        cells.add(td(String.valueOf(stats.getOrDefault("suicides", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("worldKills", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("flagCaptures", 0.0).intValue())));
+        cells.add(td(String.valueOf((int) flagReturns)));
+        cells.add(td(String.valueOf(stats.getOrDefault("teamKills", 0.0).intValue())));
+        cells.add(td(
+                String.valueOf(stats.getOrDefault("killedByTeammates", 0.0).intValue())));
+
+        if (showPerGameStats) {
+            cells.add(td(String.format("%.2f", gamesPlayedByPlayer == 0 ? 0.0
+                    : totalScore / gamesPlayedByPlayer)));
+            cells.add(td(String.format("%.2f", gamesPlayedByPlayer == 0 ? 0.0
+                    : totalKills / gamesPlayedByPlayer)));
+            cells.add(td(String.format("%.2f", gamesPlayedByPlayer == 0 ? 0.0
+                    : flagReturns / gamesPlayedByPlayer)));
+        }
+
+        cells.add(td(String.format("%.2f", totalDeaths == 0 ? totalKills
+                : totalKills / totalDeaths)));
+        cells.add(td(String.valueOf(stats.getOrDefault("maxKillStreak", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("maxDeathStreak", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("hitsGiven", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("hitsReceived", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("damageGiven", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("damageReceived", 0.0).intValue())));
+
+        return tr(cells.toArray(new DomContent[0]));
     }
 }

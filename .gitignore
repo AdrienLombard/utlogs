@@ -1,0 +1,7 @@
+*.html
+*.iml
+.idea/
+.vscode/
+target/
+checkstyle*.xml
+src/main/resources/games.log*
