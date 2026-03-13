@@ -137,11 +137,35 @@ public class DamageManager {
         return instance;
     }
 
-    public int getDamage(String weaponId, String bodyPart) {
+    public int getDamage(String weaponId, String bodyPartStr) {
         try {
-            return this.damages.get(new Hit(Weapon.fromValue(weaponId), BodyPart.fromValue(bodyPart)));
+            Weapon weapon = Weapon.fromValue(weaponId);
+            BodyPart bodyPart = BodyPart.fromValue(bodyPartStr);
+            BodyPart effectivePart = getEffectiveBodyPart(bodyPart);
+            Integer damage = this.damages.get(new Hit(weapon, effectivePart));
+            return damage != null ? damage : 0;
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    private BodyPart getEffectiveBodyPart(BodyPart bodyPart) {
+        switch (bodyPart) {
+            case LEFT_ARM:
+            case RIGHT_ARM:
+                return BodyPart.ARMS;
+            case LEFT_UPPER_LEG:
+            case LEFT_LOWER_LEG:
+            case RIGHT_UPPER_LEG:
+            case RIGHT_LOWER_LEG:
+            case LEFT_FOOT:
+            case RIGHT_FOOT:
+                return BodyPart.LEGS;
+            case GROIN:
+            case BUTT:
+                return BodyPart.TORSO; // Defaulting to torso damage
+            default:
+                return bodyPart;
         }
     }
 

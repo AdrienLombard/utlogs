@@ -457,6 +457,15 @@ public class HtmlGenerator {
                                                     case "bomberman":
                                                         icon = "💣";
                                                         break;
+                                                    case "orchidoclaste":
+                                                        icon = "🌸";
+                                                        break;
+                                                    case "petecul":
+                                                        icon = "🍑";
+                                                        break;
+                                                    case "cassepieds":
+                                                        icon = "🦶";
+                                                        break;
                                                 }
                                                 String badgeName = Messages.get("badge." + badgeKey);
                                                 String badgeDesc = Messages.get("badge." + badgeKey + ".desc");
@@ -547,6 +556,9 @@ public class HtmlGenerator {
         Map<String, Integer> totalFlags = new HashMap<>();
         Map<String, Integer> maxKillsInGame = new HashMap<>();
         Map<String, Double> headshotHits = new HashMap<>();
+        Map<String, Double> groinHitPct = new HashMap<>();
+        Map<String, Double> buttHitPct = new HashMap<>();
+        Map<String, Double> feetHitPct = new HashMap<>();
 
         // Aggregate stats
         for (Game game : games) {
@@ -571,6 +583,20 @@ public class HtmlGenerator {
                 double headshotPercentage = headshotsGiven * 100 / hitsGiven;
 
                 headshotHits.merge(name, headshotPercentage, Double::sum);
+
+                // Track body part percentages for new achievements
+                int groinHitsPlayer = p.getHitsByBodyPart().getOrDefault(BodyPart.GROIN.value(), 0);
+                double groinPctPlayer = groinHitsPlayer * 100.0 / hitsGiven;
+                groinHitPct.merge(name, groinPctPlayer, Double::sum);
+
+                int buttHitsPlayer = p.getHitsByBodyPart().getOrDefault(BodyPart.BUTT.value(), 0);
+                double buttPctPlayer = buttHitsPlayer * 100.0 / hitsGiven;
+                buttHitPct.merge(name, buttPctPlayer, Double::sum);
+
+                int feetHitsPlayer = p.getHitsByBodyPart().getOrDefault(BodyPart.LEFT_FOOT.value(), 0)
+                        + p.getHitsByBodyPart().getOrDefault(BodyPart.RIGHT_FOOT.value(), 0);
+                double feetPctPlayer = feetHitsPlayer * 100.0 / hitsGiven;
+                feetHitPct.merge(name, feetPctPlayer, Double::sum);
             }
         }
 
@@ -676,6 +702,36 @@ public class HtmlGenerator {
                     .add("bomberman");
         }
 
+        // Orchidoclaste: highest groin hit %
+        String orchidoclaste = groinHitPct.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .filter(e -> e.getValue() > 0)
+                .map(Map.Entry::getKey).orElse(null);
+        if (orchidoclaste != null) {
+            playerAchievements.computeIfAbsent(orchidoclaste, k -> new ArrayList<>())
+                    .add("orchidoclaste");
+        }
+
+        // Pète-cul: highest butt hit %
+        String petecul = buttHitPct.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .filter(e -> e.getValue() > 0)
+                .map(Map.Entry::getKey).orElse(null);
+        if (petecul != null) {
+            playerAchievements.computeIfAbsent(petecul, k -> new ArrayList<>())
+                    .add("petecul");
+        }
+
+        // Casse-pieds: highest feet hit %
+        String cassepieds = feetHitPct.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .filter(e -> e.getValue() > 0)
+                .map(Map.Entry::getKey).orElse(null);
+        if (cassepieds != null) {
+            playerAchievements.computeIfAbsent(cassepieds, k -> new ArrayList<>())
+                    .add("cassepieds");
+        }
+
         return playerAchievements;
     }
 
@@ -687,6 +743,7 @@ public class HtmlGenerator {
      * @param bodyPartHits map of body part names to hit counts
      * @return HTML div containing the body diagram
      */
+
     private DomContent createBodyDiagram(Map<String, Integer> bodyPartHits) {
         if (bodyPartHits.isEmpty()) {
             return div(); // Return empty div if no data
@@ -694,70 +751,103 @@ public class HtmlGenerator {
 
         int totalHits = bodyPartHits.values().stream().mapToInt(Integer::intValue).sum();
 
-        // Calculate percentages for each body part
-        int helmetHits =
-                bodyPartHits.getOrDefault(BodyPart.HELMET.value(), 0) + bodyPartHits.getOrDefault(BodyPart.HEAD.value()
-                        , 0);
-        int kevlarHits =
-                bodyPartHits.getOrDefault(BodyPart.KEVLAR.value(), 0) + bodyPartHits.getOrDefault(BodyPart.TORSO.value()
-                        , 0) + bodyPartHits.getOrDefault(BodyPart.VEST.value(), 0)
-                + bodyPartHits.getOrDefault(BodyPart.BODY.value(), 0) + bodyPartHits.getOrDefault(BodyPart.GROIN.value(), 0)
-                        + bodyPartHits.getOrDefault(BodyPart.BUTT.value(), 0);
-        int armsHits =
-                bodyPartHits.getOrDefault(BodyPart.ARMS.value(), 0) + bodyPartHits.getOrDefault(BodyPart.LEFT_ARM.value()
-                        , 0) + bodyPartHits.getOrDefault(BodyPart.RIGHT_ARM.value(), 0);
-        int legsHits =
-                bodyPartHits.getOrDefault(BodyPart.LEGS.value(), 0)
-                        + bodyPartHits.getOrDefault(BodyPart.RIGHT_UPPER_LEG.value(), 0)
-                        + bodyPartHits.getOrDefault(BodyPart.LEFT_UPPER_LEG.value(), 0)
-                        + bodyPartHits.getOrDefault(BodyPart.RIGHT_LOWER_LEG.value(), 0)
-                        + bodyPartHits.getOrDefault(BodyPart.LEFT_LOWER_LEG.value(), 0);
+        // Calculate hits for each body part
+        int headHits = bodyPartHits.getOrDefault(BodyPart.HELMET.value(), 0) + bodyPartHits.getOrDefault(BodyPart.HEAD.value(), 0);
+        int torsoHits = bodyPartHits.getOrDefault(BodyPart.KEVLAR.value(), 0) + bodyPartHits.getOrDefault(BodyPart.TORSO.value(), 0) + bodyPartHits.getOrDefault(BodyPart.VEST.value(), 0) + bodyPartHits.getOrDefault(BodyPart.BODY.value(), 0);
+        int groinHits = bodyPartHits.getOrDefault(BodyPart.GROIN.value(), 0);
+        int buttHits = bodyPartHits.getOrDefault(BodyPart.BUTT.value(), 0);
+        int oldArmsHits = bodyPartHits.getOrDefault(BodyPart.ARMS.value(), 0);
+        int leftArmHits = bodyPartHits.getOrDefault(BodyPart.LEFT_ARM.value(), 0) + oldArmsHits / 2;
+        int rightArmHits = bodyPartHits.getOrDefault(BodyPart.RIGHT_ARM.value(), 0) + oldArmsHits / 2 + oldArmsHits % 2;
+        int oldLegsHits = bodyPartHits.getOrDefault(BodyPart.LEGS.value(), 0);
+        int leftUpperLegHits = bodyPartHits.getOrDefault(BodyPart.LEFT_UPPER_LEG.value(), 0) + oldLegsHits / 4;
+        int rightUpperLegHits = bodyPartHits.getOrDefault(BodyPart.RIGHT_UPPER_LEG.value(), 0) + oldLegsHits / 4 + oldLegsHits % 4;
+        int leftLowerLegHits = bodyPartHits.getOrDefault(BodyPart.LEFT_LOWER_LEG.value(), 0);
+        int rightLowerLegHits = bodyPartHits.getOrDefault(BodyPart.RIGHT_LOWER_LEG.value(), 0);
+        int leftFootHits = bodyPartHits.getOrDefault(BodyPart.LEFT_FOOT.value(), 0);
+        int rightFootHits = bodyPartHits.getOrDefault(BodyPart.RIGHT_FOOT.value(), 0);
 
-        double helmetPct = totalHits > 0 ? (helmetHits * PERCENTAGE_FACTOR / totalHits) : 0;
-        double kevlarPct = totalHits > 0 ? (kevlarHits * PERCENTAGE_FACTOR / totalHits) : 0;
-        double armsPct = totalHits > 0 ? (armsHits * PERCENTAGE_FACTOR / totalHits) : 0;
-        double legsPct = totalHits > 0 ? (legsHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double headPct = totalHits > 0 ? ((double) headHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double torsoPct = totalHits > 0 ? ((double) torsoHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double groinPct = totalHits > 0 ? ((double) groinHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double buttPct = totalHits > 0 ? ((double) buttHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        int groinButtHits = groinHits + buttHits;
+        double groinButtPct = totalHits > 0 ? ((double) groinButtHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double leftArmPct = totalHits > 0 ? ((double) leftArmHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double rightArmPct = totalHits > 0 ? ((double) rightArmHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double leftUpperLegPct = totalHits > 0 ? ((double) leftUpperLegHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double rightUpperLegPct = totalHits > 0 ? ((double) rightUpperLegHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double leftLowerLegPct = totalHits > 0 ? ((double) leftLowerLegHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double rightLowerLegPct = totalHits > 0 ? ((double) rightLowerLegHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double leftFootPct = totalHits > 0 ? ((double) leftFootHits * PERCENTAGE_FACTOR / totalHits) : 0;
+        double rightFootPct = totalHits > 0 ? ((double) rightFootHits * PERCENTAGE_FACTOR / totalHits) : 0;
 
         return div(
                 p(text(Messages.get("bodyHit.totalHits", String.valueOf(totalHits))))
                         .withClass("body-hit-total"),
                 div(
-                        // Left Column: Arms
+                        // SVG Diagram Center
+                        div(rawHtml(createHudSvg(
+                                headHits, headPct,
+                                torsoHits, torsoPct,
+                                groinHits, groinPct,
+                                buttHits, buttPct,
+                                groinButtHits, groinButtPct,
+                                leftArmHits, leftArmPct,
+                                rightArmHits, rightArmPct,
+                                leftUpperLegHits, leftUpperLegPct,
+                                rightUpperLegHits, rightUpperLegPct,
+                                leftLowerLegHits, leftLowerLegPct,
+                                rightLowerLegHits, rightLowerLegPct,
+                                leftFootHits, leftFootPct,
+                                rightFootHits, rightFootPct
+                        ))).withClass("hud-svg-container"),
+                        
+                        // Dynamic Details Panel Right
                         div(
-                                createHudCard("Arms", armsHits, armsPct, "left")).withClass("hud-column left-col"),
-
-                        // Center Column: Silhouette & Leader Lines
-                        div(rawHtml(createHudSvg())).withClass("hud-column center-col"),
-
-                        // Right Column: Head, Torso, Legs
-                        div(
-                                createHudCard("Head", helmetHits, helmetPct, "right"),
-                                createHudCard("Torso", kevlarHits, kevlarPct, "right"),
-                                createHudCard("Legs", legsHits, legsPct, "right")).withClass("hud-column right-col"))
-                        .withClass("hud-container"))
-                .withClass("body-hit-section");
+                                div(Messages.get("bodyHit.detailsTitle")).withClass("details-panel-title"),
+                                div(Messages.get("bodyHit.hoverHint")).withClass("details-panel-placeholder"),
+                                div(
+                                        div("").withClass("details-part-name"),
+                                        div("").withClass("details-part-pct"),
+                                        div("").withClass("details-part-hits")
+                                ).withClass("details-panel-stats hidden"),
+                                div(
+                                        div("").withClass("details-compound-name"),
+                                        div(
+                                                div(
+                                                        span("").withClass("details-sub-name"),
+                                                        span("").withClass("details-sub-pct"),
+                                                        span("").withClass("details-sub-hits")
+                                                ).withClass("details-sub-entry"),
+                                                div(
+                                                        span("").withClass("details-sub-name"),
+                                                        span("").withClass("details-sub-pct"),
+                                                        span("").withClass("details-sub-hits")
+                                                ).withClass("details-sub-entry")
+                                        ).withClass("details-sub-entries")
+                                ).withClass("details-panel-compound hidden")
+                        ).withId("hud-details-panel")
+                ).withClass("hud-container")
+        ).withClass("body-hit-section");
     }
 
-    private DomContent createHudCard(String type, int hits, double pct, String side) {
-        String labelKey = "bodyHit.helmet"; // Default
-        if (type.equals("Torso"))
-            labelKey = "bodyHit.kevlar";
-        if (type.equals("Arms"))
-            labelKey = "bodyHit.arms";
-        if (type.equals("Legs"))
-            labelKey = "bodyHit.legs";
-
-        return div(
-                div(Messages.get(labelKey)).withClass("hud-label"),
-                div(
-                        span(String.format("%.1f%%", pct)).withClass("hud-pct"),
-                        span(" (" + hits + ")").withClass("hud-count")).withClass("hud-values"))
-                .withClass("hud-card hud-" + side + " hud-" + type.toLowerCase())
-                .attr("data-part", type.toLowerCase());
-    }
-
-    private String createHudSvg() {
-        return "<svg class=\"hud-svg\" viewBox=\"0 0 300 400\" xmlns=\"http://www.w3.org/2000/svg\">"
+    private String createHudSvg(
+            int headHits, double headPct,
+            int torsoHits, double torsoPct,
+            int groinHits, double groinPct,
+            int buttHits, double buttPct,
+            int groinButtHits, double groinButtPct,
+            int leftArmHits, double leftArmPct,
+            int rightArmHits, double rightArmPct,
+            int leftUpperLegHits, double leftUpperLegPct,
+            int rightUpperLegHits, double rightUpperLegPct,
+            int leftLowerLegHits, double leftLowerLegPct,
+            int rightLowerLegHits, double rightLowerLegPct,
+            int leftFootHits, double leftFootPct,
+            int rightFootHits, double rightFootPct
+    ) {
+        return "<svg class=\"hud-svg\" viewBox=\"0 0 300 420\" xmlns=\"http://www.w3.org/2000/svg\">"
                 + "  <defs>"
                 + "    <filter id=\"glow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">"
                 + "      <feGaussianBlur stdDeviation=\"2\" result=\"blur\"/>"
@@ -766,37 +856,40 @@ public class HtmlGenerator {
                 + "  </defs>"
                 + "  <!-- Silhouette (Ghostly Wireframe) -->"
                 + "  <g class=\"silhouette-group\" filter=\"url(#glow)\">"
-                + "    <ellipse cx=\"150\" cy=\"50\" rx=\"25\" ry=\"30\" "
-                + "class=\"body-part body-head\" data-part=\"head\" />"
-                + "    <path d=\"M120,85 L180,85 L170,220 L130,220 Z\" "
-                + "class=\"body-part body-torso\" data-part=\"torso\" />"
-                + "    <rect x=\"80\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" "
-                + "class=\"body-part body-arms\" data-part=\"arms\" />"
-                + "    <rect x=\"190\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" "
-                + "class=\"body-part body-arms\" data-part=\"arms\" />"
-                + "    <rect x=\"125\" y=\"225\" width=\"22\" height=\"130\" rx=\"5\" "
-                + "class=\"body-part body-legs\" data-part=\"legs\" />"
-                + "    <rect x=\"153\" y=\"225\" width=\"22\" height=\"130\" rx=\"5\" "
-                + "class=\"body-part body-legs\" data-part=\"legs\" />"
-                + "  </g>"
-
-                + "  <!-- Leader Lines (Connecting text areas to body parts) -->"
-                + "  <g class=\"leader-lines\">"
-                + "    <!-- Head (Right side) -->"
-                + "    <polyline points=\"175,50 220,50 280,50\" class=\"line line-head\" />"
-                + "    <circle cx=\"175\" cy=\"50\" r=\"3\" class=\"dot\" />"
-
-                + "    <!-- Torso (Right side) -->"
-                + "    <polyline points=\"170,140 220,140 280,140\" class=\"line line-torso\" />"
-                + "    <circle cx=\"170\" cy=\"140\" r=\"3\" class=\"dot\" />"
-
-                + "    <!-- Arms (Left side - pointing to left arm) -->"
-                + "    <polyline points=\"80,140 40,140 10,140\" class=\"line line-arms\" />"
-                + "    <circle cx=\"80\" cy=\"140\" r=\"3\" class=\"dot\" />"
-
-                + "    <!-- Legs (Right side - pointing to right thigh/knee) -->"
-                + "    <polyline points=\"175,280 220,280 280,280\" class=\"line line-legs\" />"
-                + "    <circle cx=\"175\" cy=\"280\" r=\"3\" class=\"dot\" />"
+                + "    <ellipse cx=\"150\" cy=\"50\" rx=\"25\" ry=\"30\" class=\"body-part body-head\" "
+                + "      data-name=\"" + Messages.get("bodyHit.helmet") + "\" data-hits=\"" + headHits + "\" data-pct=\"" + String.format("%.1f", headPct) + "\" />"
+                
+                + "    <path d=\"M120,85 L180,85 L170,220 L130,220 Z\" class=\"body-part body-torso\" "
+                + "      data-name=\"" + Messages.get("bodyHit.kevlar") + "\" data-hits=\"" + torsoHits + "\" data-pct=\"" + String.format("%.1f", torsoPct) + "\" />"
+                
+                + "    <ellipse cx=\"150\" cy=\"227\" rx=\"25\" ry=\"18\" class=\"body-part body-groin-butt\" "
+                + "      data-name=\"" + Messages.get("bodyHit.groinButt") + "\" data-hits=\"" + groinButtHits + "\" data-pct=\"" + String.format("%.1f", groinButtPct) + "\""
+                + "      data-groin-name=\"" + Messages.get("bodyHit.groin") + "\" data-groin-hits=\"" + groinHits + "\" data-groin-pct=\"" + String.format("%.1f", groinPct) + "\""
+                + "      data-butt-name=\"" + Messages.get("bodyHit.butt") + "\" data-butt-hits=\"" + buttHits + "\" data-butt-pct=\"" + String.format("%.1f", buttPct) + "\" />"
+                
+                + "    <rect x=\"80\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" class=\"body-part body-arms\" "
+                + "      data-name=\"" + Messages.get("bodyHit.leftArm") + "\" data-hits=\"" + leftArmHits + "\" data-pct=\"" + String.format("%.1f", leftArmPct) + "\" />"
+                
+                + "    <rect x=\"190\" y=\"90\" width=\"30\" height=\"100\" rx=\"5\" class=\"body-part body-arms\" "
+                + "      data-name=\"" + Messages.get("bodyHit.rightArm") + "\" data-hits=\"" + rightArmHits + "\" data-pct=\"" + String.format("%.1f", rightArmPct) + "\" />"
+                
+                + "    <rect x=\"125\" y=\"225\" width=\"22\" height=\"60\" rx=\"5\" class=\"body-part body-legs\" "
+                + "      data-name=\"" + Messages.get("bodyHit.leftUpperLeg") + "\" data-hits=\"" + leftUpperLegHits + "\" data-pct=\"" + String.format("%.1f", leftUpperLegPct) + "\" />"
+                
+                + "    <rect x=\"125\" y=\"290\" width=\"22\" height=\"65\" rx=\"5\" class=\"body-part body-legs\" "
+                + "      data-name=\"" + Messages.get("bodyHit.leftLowerLeg") + "\" data-hits=\"" + leftLowerLegHits + "\" data-pct=\"" + String.format("%.1f", leftLowerLegPct) + "\" />"
+                
+                + "    <rect x=\"120\" y=\"360\" width=\"27\" height=\"15\" rx=\"5\" class=\"body-part body-legs\" "
+                + "      data-name=\"" + Messages.get("bodyHit.leftFoot") + "\" data-hits=\"" + leftFootHits + "\" data-pct=\"" + String.format("%.1f", leftFootPct) + "\" />"
+                
+                + "    <rect x=\"153\" y=\"225\" width=\"22\" height=\"60\" rx=\"5\" class=\"body-part body-legs\" "
+                + "      data-name=\"" + Messages.get("bodyHit.rightUpperLeg") + "\" data-hits=\"" + rightUpperLegHits + "\" data-pct=\"" + String.format("%.1f", rightUpperLegPct) + "\" />"
+                
+                + "    <rect x=\"153\" y=\"290\" width=\"22\" height=\"65\" rx=\"5\" class=\"body-part body-legs\" "
+                + "      data-name=\"" + Messages.get("bodyHit.rightLowerLeg") + "\" data-hits=\"" + rightLowerLegHits + "\" data-pct=\"" + String.format("%.1f", rightLowerLegPct) + "\" />"
+                
+                + "    <rect x=\"153\" y=\"360\" width=\"27\" height=\"15\" rx=\"5\" class=\"body-part body-legs\" "
+                + "      data-name=\"" + Messages.get("bodyHit.rightFoot") + "\" data-hits=\"" + rightFootHits + "\" data-pct=\"" + String.format("%.1f", rightFootPct) + "\" />"
                 + "  </g>"
                 + "</svg>";
     }
@@ -1262,6 +1355,15 @@ public class HtmlGenerator {
                         break;
                     case "bomberman":
                         icon = "💣";
+                        break;
+                    case "orchidoclaste":
+                        icon = "🌸";
+                        break;
+                    case "petecul":
+                        icon = "🍑";
+                        break;
+                    case "cassepieds":
+                        icon = "🦶";
                         break;
                 }
 

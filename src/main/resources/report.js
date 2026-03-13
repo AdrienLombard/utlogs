@@ -437,24 +437,129 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Body Hit Diagram Interaction
 document.addEventListener('DOMContentLoaded', function () {
-    const interactables = document.querySelectorAll('[data-part]');
+    const interactables = document.querySelectorAll('.body-part');
 
     interactables.forEach(el => {
         el.addEventListener('mouseenter', function () {
-            const part = this.getAttribute('data-part');
-            document.querySelectorAll(`[data-part="${part}"]`).forEach(target => {
-                target.classList.add('highlight');
-            });
+            // Apply highlight
+            this.classList.add('highlight');
+            
+            // Find the panel elements relative to this SVG's container
+            const container = this.closest('.hud-container');
+            if (!container) return;
+            
+            const panelPlaceholder = container.querySelector('.details-panel-placeholder');
+            const panelStats = container.querySelector('.details-panel-stats');
+            const panelCompound = container.querySelector('.details-panel-compound');
+            const nameEl = container.querySelector('.details-part-name');
+            const pctEl = container.querySelector('.details-part-pct');
+            const hitsEl = container.querySelector('.details-part-hits');
+            const compoundNameEl = container.querySelector('.details-compound-name');
+            const subEntries = container.querySelectorAll('.details-sub-entry');
+            
+            // Check if compound element (groin/butt)
+            const groinName = this.getAttribute('data-groin-name');
+            
+            if (groinName) {
+                // Compound: show both groin and butt
+                const name = this.getAttribute('data-name');
+                const groinHits = this.getAttribute('data-groin-hits');
+                const groinPct = this.getAttribute('data-groin-pct');
+                const buttName = this.getAttribute('data-butt-name');
+                const buttHits = this.getAttribute('data-butt-hits');
+                const buttPct = this.getAttribute('data-butt-pct');
+                
+                compoundNameEl.textContent = name;
+                
+                if (subEntries[0]) {
+                    subEntries[0].querySelector('.details-sub-name').textContent = groinName;
+                    subEntries[0].querySelector('.details-sub-pct').textContent = groinPct + '%';
+                    subEntries[0].querySelector('.details-sub-hits').textContent = '(' + groinHits + ' hits)';
+                }
+                if (subEntries[1]) {
+                    subEntries[1].querySelector('.details-sub-name').textContent = buttName;
+                    subEntries[1].querySelector('.details-sub-pct').textContent = buttPct + '%';
+                    subEntries[1].querySelector('.details-sub-hits').textContent = '(' + buttHits + ' hits)';
+                }
+                
+                panelPlaceholder.classList.add('hidden');
+                panelStats.classList.add('hidden');
+                panelCompound.classList.remove('hidden');
+            } else {
+                // Simple: show single body part
+                const name = this.getAttribute('data-name');
+                const hits = this.getAttribute('data-hits');
+                const pct = this.getAttribute('data-pct');
+                
+                if (name && hits && pct) {
+                    nameEl.textContent = name;
+                    pctEl.textContent = pct + '%';
+                    hitsEl.textContent = '(' + hits + ' hits)';
+                    
+                    panelPlaceholder.classList.add('hidden');
+                    panelCompound.classList.add('hidden');
+                    panelStats.classList.remove('hidden');
+                }
+            }
         });
 
         el.addEventListener('mouseleave', function () {
-            const part = this.getAttribute('data-part');
-            document.querySelectorAll(`[data-part="${part}"]`).forEach(target => {
-                target.classList.remove('highlight');
-            });
+            // Remove highlight
+            this.classList.remove('highlight');
+            
+            // Find the panel elements relative to this SVG's container
+            const container = this.closest('.hud-container');
+            if (!container) return;
+            
+            const panelPlaceholder = container.querySelector('.details-panel-placeholder');
+            const panelStats = container.querySelector('.details-panel-stats');
+            const panelCompound = container.querySelector('.details-panel-compound');
+            
+            // Reset panel
+            panelPlaceholder.classList.remove('hidden');
+            panelStats.classList.add('hidden');
+            panelCompound.classList.add('hidden');
         });
     });
+
+    initHeatmaps();
 });
+
+function initHeatmaps() {
+    const svgs = document.querySelectorAll('.hud-svg');
+    svgs.forEach(svg => {
+        const parts = svg.querySelectorAll('.body-part');
+        let maxHits = 0;
+        
+        // Find max hits for this specific diagram
+        parts.forEach(part => {
+            const hits = parseInt(part.getAttribute('data-hits')) || 0;
+            if (hits > maxHits) maxHits = hits;
+        });
+        
+        if (maxHits === 0) return;
+        
+        // Apply heatmap variables
+        parts.forEach(part => {
+            const hits = parseInt(part.getAttribute('data-hits')) || 0;
+            if (hits > 0) {
+                // Map [1, maxHits] to [0, 1] intensity
+                const intensity = maxHits > 1 ? (hits - 1) / (maxHits - 1) : 1;
+                
+                // Monochromatic Cyan gradient to match the UI theme
+                const hue = 190; // Cyan
+                
+                // Increase lightness and opacity as the body part gets hit more
+                const lightness = 30 + (intensity * 50); // 30% to 80%
+                const fillAlpha = 0.1 + (intensity * 0.7); // 0.1 to 0.8
+                
+                part.style.setProperty('--heatmap-fill', `hsla(${hue}, 100%, ${lightness}%, ${fillAlpha})`);
+                part.style.setProperty('--heatmap-fill-hover', `hsla(${hue}, 100%, ${lightness}%, ${fillAlpha + 0.1})`);
+                part.style.setProperty('--heatmap-glow', `hsla(${hue}, 100%, ${lightness + 10}%, 0.8)`);
+            }
+        });
+    });
+}
 
 // Update indicators on window resize to handle wrapping
 window.addEventListener('resize', function () {

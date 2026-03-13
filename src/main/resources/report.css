@@ -862,110 +862,114 @@ div.d-block {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 20px;
-    position: relative;
-    max-width: 800px;
+    gap: 40px;
+    max-width: 700px;
     margin: 0 auto;
 }
 
-.hud-column {
+.hud-svg-container {
+    flex: 0 0 350px;
+}
+
+#hud-details-panel {
     flex: 1;
+    background: rgba(var(--bg-card-rgb), 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(63, 140, 251, 0.4);
+    box-shadow: 0 0 15px rgba(63, 140, 251, 0.1);
+    border-radius: 8px;
+    padding: 25px;
     display: flex;
     flex-direction: column;
-    height: 400px;
-    /* Match SVG height */
-}
-
-.center-col {
-    flex: 0 0 300px;
-    /* Output width of SVG */
-    display: flex;
     justify-content: center;
-    align-items: center;
+    min-height: 150px;
 }
 
-.left-col {
-    align-items: flex-end;
-    /* Keep card close to silhouette */
-    text-align: left;
-    /* Text inside card left-aligned */
-    justify-content: flex-start;
-}
-
-.right-col {
-    align-items: flex-start;
-    text-align: left;
-    justify-content: flex-start;
-    gap: 0;
-}
-
-/* Specific spacing for right column alignment */
-.hud-head {
-    margin-top: 15px;
-    /* Center ~50px */
-}
-
-.hud-torso {
-    margin-top: 20px;
-    /* Gap from head bottom (85) to torso top (105) */
-}
-
-.hud-legs {
-    margin-top: 70px;
-    /* Gap from torso bottom (175) to legs top (245) */
-}
-
-.hud-arms {
-    margin-top: 105px;
-    /* Center ~140px */
-}
-
-
-
-/* HUD Card Styles */
-.hud-card {
-    background: rgba(var(--bg-card-rgb), 0.6);
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(63, 140, 251, 0.3);
-    padding: 10px 15px;
-    border-radius: 6px;
-    min-width: 120px;
-    transition: all 0.3s ease;
-    box-shadow: 0 0 10px rgba(63, 140, 251, 0.1);
-}
-
-.hud-card:hover {
-    border-color: var(--accent-blue);
-    box-shadow: 0 0 15px rgba(63, 140, 251, 0.4);
-    transform: scale(1.05);
-}
-
-.hud-label {
-    font-size: 0.85em;
+.details-panel-title {
+    font-size: 0.9em;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
+    letter-spacing: 2px;
+    color: var(--accent-blue);
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(63, 140, 251, 0.3);
+    padding-bottom: 5px;
 }
 
-.hud-values {
+.details-panel-placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.95em;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.details-panel-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.details-part-name {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--text-main);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
+.details-part-pct {
+    font-size: 2.2em;
+    font-weight: bold;
+    color: var(--accent-blue);
+    text-shadow: 0 0 10px rgba(63, 140, 251, 0.5);
+    line-height: 1;
+}
+
+.details-part-hits {
+    font-size: 1em;
+    color: var(--text-muted);
+}
+
+.details-compound-name {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.details-sub-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.details-sub-entry {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    justify-content: inherit;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.hud-pct {
+.details-sub-name {
+    font-size: 1em;
+    color: var(--text-primary);
+    min-width: 60px;
+}
+
+.details-sub-pct {
     font-size: 1.4em;
     font-weight: bold;
     color: var(--accent-blue);
-    text-shadow: 0 0 8px rgba(63, 140, 251, 0.5);
+    text-shadow: 0 0 10px rgba(63, 140, 251, 0.5);
 }
 
-.hud-count {
-    font-size: 0.9em;
-    color: var(--text-main);
-    opacity: 0.8;
+.details-sub-hits {
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.hidden {
+    display: none !important;
 }
 
 /* SVG Styles */
@@ -976,78 +980,32 @@ div.d-block {
 }
 
 .body-part {
-    fill: rgba(255, 255, 255, 0.05);
+    fill: var(--heatmap-fill, rgba(255, 255, 255, 0.05));
     stroke: var(--text-muted);
     stroke-width: 1.5;
     transition: all 0.3s ease;
     vector-effect: non-scaling-stroke;
+    cursor: crosshair;
 }
 
-.body-part:hover {
-    fill: rgba(63, 140, 251, 0.15);
-    stroke: var(--accent-blue);
-}
-
-.leader-lines .line {
-    fill: none;
-    stroke: var(--accent-blue);
-    stroke-width: 1.5;
-    opacity: 0.6;
-    stroke-dasharray: 4 2;
-    /* Dashed lines for HUD feel */
-}
-
-.leader-lines .dot {
-    fill: var(--accent-blue);
-    opacity: 0.8;
+.body-part:hover, .body-part.highlight {
+    fill: var(--heatmap-fill-hover, rgba(63, 140, 251, 0.2));
+    stroke: var(--heatmap-glow, var(--accent-blue));
+    stroke-width: 2px;
+    filter: drop-shadow(0 0 8px var(--heatmap-glow, var(--accent-blue)));
 }
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
     .hud-container {
         flex-direction: column;
-        gap: 10px;
+        gap: 20px;
     }
-
-    .center-col {
-        order: 1;
-        /* Silhouette first */
-        height: 300px;
-    }
-
-    .left-col,
-    .right-col {
-        order: 2;
+    
+    #hud-details-panel {
         width: 100%;
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        gap: 10px;
-        text-align: center;
+        min-height: auto;
     }
-
-    .hud-card {
-        min-width: 100px;
-        text-align: center;
-    }
-
-    .hud-values {
-        justify-content: center;
-    }
-
-    /* Hide leader lines on mobile as layout changes */
-    .leader-lines {
-        display: none;
-    }
-}
-
-/* Interactive Highlighting */
-.hud-card.highlight {
-    border-color: var(--accent-glow);
-    box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
-    background: rgba(var(--bg-card-rgb), 0.8);
-    transform: scale(1.02);
 }
 
 .body-part.highlight {

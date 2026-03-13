@@ -17,6 +17,8 @@ public enum BodyPart {
     LEFT_LOWER_LEG("Left Lower Leg"),
     RIGHT_UPPER_LEG("Right Upper Leg"),
     RIGHT_LOWER_LEG("Right Lower Leg"),
+    LEFT_FOOT("Left Foot"),
+    RIGHT_FOOT("Right Foot"),
     BODY("Body"),
     UNKNOWN("-1");
     private final String id;
