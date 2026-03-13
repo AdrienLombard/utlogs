@@ -437,7 +437,7 @@ public class HtmlGenerator {
                                                         icon = "🎯";
                                                         break;
                                                     case "flag":
-                                                        icon = "🇫🇷";
+                                                        icon = "🏳️";
                                                         break;
                                                     case "grimReaper":
                                                         icon = "💀";
@@ -546,7 +546,7 @@ public class HtmlGenerator {
         Map<String, Integer> totalDeaths = new HashMap<>();
         Map<String, Integer> totalFlags = new HashMap<>();
         Map<String, Integer> maxKillsInGame = new HashMap<>();
-        Map<String, Integer> headshotHits = new HashMap<>();
+        Map<String, Double> headshotHits = new HashMap<>();
 
         // Aggregate stats
         for (Game game : games) {
@@ -564,7 +564,13 @@ public class HtmlGenerator {
                     maxKillsInGame.put(name, p.getKills());
                 }
 
-                headshotHits.merge(name, p.getHitsByBodyPart().getOrDefault("Helmet", 0), Integer::sum);
+                double hitsGiven = p.getHitsGiven() > 0 ? p.getHitsGiven() : 1;
+                int headshotsGiven =
+                        p.getHitsByBodyPart().getOrDefault(BodyPart.HELMET.value(), 0) + p.getHitsByBodyPart().getOrDefault(BodyPart.HEAD.value(),
+                                                                                                                                     0);
+                double headshotPercentage = headshotsGiven * 100 / hitsGiven;
+
+                headshotHits.merge(name, headshotPercentage, Double::sum);
             }
         }
 
@@ -689,11 +695,23 @@ public class HtmlGenerator {
         int totalHits = bodyPartHits.values().stream().mapToInt(Integer::intValue).sum();
 
         // Calculate percentages for each body part
-        int helmetHits = bodyPartHits.getOrDefault("Helmet", 0) + bodyPartHits.getOrDefault("Head", 0);
-        int kevlarHits = bodyPartHits.getOrDefault("Kevlar", 0) + bodyPartHits.getOrDefault("Torso", 0)
-                + bodyPartHits.getOrDefault("Body", 0);
-        int armsHits = bodyPartHits.getOrDefault("Arms", 0);
-        int legsHits = bodyPartHits.getOrDefault("Legs", 0);
+        int helmetHits =
+                bodyPartHits.getOrDefault(BodyPart.HELMET.value(), 0) + bodyPartHits.getOrDefault(BodyPart.HEAD.value()
+                        , 0);
+        int kevlarHits =
+                bodyPartHits.getOrDefault(BodyPart.KEVLAR.value(), 0) + bodyPartHits.getOrDefault(BodyPart.TORSO.value()
+                        , 0) + bodyPartHits.getOrDefault(BodyPart.VEST.value(), 0)
+                + bodyPartHits.getOrDefault(BodyPart.BODY.value(), 0) + bodyPartHits.getOrDefault(BodyPart.GROIN.value(), 0)
+                        + bodyPartHits.getOrDefault(BodyPart.BUTT.value(), 0);
+        int armsHits =
+                bodyPartHits.getOrDefault(BodyPart.ARMS.value(), 0) + bodyPartHits.getOrDefault(BodyPart.LEFT_ARM.value()
+                        , 0) + bodyPartHits.getOrDefault(BodyPart.RIGHT_ARM.value(), 0);
+        int legsHits =
+                bodyPartHits.getOrDefault(BodyPart.LEGS.value(), 0)
+                        + bodyPartHits.getOrDefault(BodyPart.RIGHT_UPPER_LEG.value(), 0)
+                        + bodyPartHits.getOrDefault(BodyPart.LEFT_UPPER_LEG.value(), 0)
+                        + bodyPartHits.getOrDefault(BodyPart.RIGHT_LOWER_LEG.value(), 0)
+                        + bodyPartHits.getOrDefault(BodyPart.LEFT_LOWER_LEG.value(), 0);
 
         double helmetPct = totalHits > 0 ? (helmetHits * PERCENTAGE_FACTOR / totalHits) : 0;
         double kevlarPct = totalHits > 0 ? (kevlarHits * PERCENTAGE_FACTOR / totalHits) : 0;
@@ -1225,7 +1243,7 @@ public class HtmlGenerator {
                         icon = "🎯";
                         break;
                     case "flag":
-                        icon = "🇫🇷";
+                        icon = "🏳️";
                         break;
                     case "grimReaper":
                         icon = "💀";
