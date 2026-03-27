@@ -19,9 +19,13 @@ public enum Weapon {
     BOMB("16"),
     NEGEV("17"),
     M4("19"),
-    UNKNOWN21("21"),
-    UNKNOWN22("22"),
-    KICKED("24"),
+    GLOCK("20"),
+    COLT1911("21"),
+    MAC11("22"),
+    FRF1("23"),
+    BENELLI("24"),
+    P90("25"),
+    MAGNUM("26"),
     UNKNOWN("-1");
 
     private final String id;

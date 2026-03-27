@@ -259,7 +259,12 @@ public class HtmlGenerator {
         Set<String> allPlayerNamesSet = new HashSet<>();
         for (Game game : games) {
             for (Player p : game.getPlayers().values()) {
-                allPlayerNamesSet.add(p.getName());
+                String pName = p.getName();
+                // Skip placeholder players created when an ID had no name mapping yet
+                if (pName == null || pName.isBlank() || pName.equals("Unknown")) {
+                    continue;
+                }
+                allPlayerNamesSet.add(pName);
             }
         }
         List<String> allPlayerNames = new ArrayList<>(allPlayerNamesSet);
@@ -556,9 +561,12 @@ public class HtmlGenerator {
         Map<String, Integer> totalFlags = new HashMap<>();
         Map<String, Integer> maxKillsInGame = new HashMap<>();
         Map<String, Double> headshotHits = new HashMap<>();
-        Map<String, Double> groinHitPct = new HashMap<>();
-        Map<String, Double> buttHitPct = new HashMap<>();
-        Map<String, Double> feetHitPct = new HashMap<>();
+        // Accumulate raw hit counts then compute % once at the end
+        Map<String, Integer> totalHitsGiven = new HashMap<>();
+        Map<String, Integer> totalHeadshotHits = new HashMap<>();
+        Map<String, Integer> totalGroinHits = new HashMap<>();
+        Map<String, Integer> totalButtHits = new HashMap<>();
+        Map<String, Integer> totalFeetHits = new HashMap<>();
 
         // Aggregate stats
         for (Game game : games) {
@@ -567,6 +575,10 @@ public class HtmlGenerator {
                     continue;
 
                 String name = p.getName();
+                // Skip placeholder players
+                if (name == null || name.isBlank() || name.equals("Unknown")) {
+                    continue;
+                }
                 totalKills.merge(name, p.getKills(), Integer::sum);
                 totalDeaths.merge(name, p.getDeaths(), Integer::sum);
                 totalFlags.merge(name, p.getFlagCaptures(), Integer::sum);
@@ -576,27 +588,37 @@ public class HtmlGenerator {
                     maxKillsInGame.put(name, p.getKills());
                 }
 
-                double hitsGiven = p.getHitsGiven() > 0 ? p.getHitsGiven() : 1;
-                int headshotsGiven =
-                        p.getHitsByBodyPart().getOrDefault(BodyPart.HELMET.value(), 0) + p.getHitsByBodyPart().getOrDefault(BodyPart.HEAD.value(),
-                                                                                                                                     0);
-                double headshotPercentage = headshotsGiven * 100 / hitsGiven;
+                // Accumulate raw hit counts across all games
+                totalHitsGiven.merge(name, p.getHitsGiven(), Integer::sum);
 
-                headshotHits.merge(name, headshotPercentage, Double::sum);
+                int headshotsGiven = p.getHitsByBodyPart().getOrDefault(BodyPart.HELMET.value(), 0)
+                        + p.getHitsByBodyPart().getOrDefault(BodyPart.HEAD.value(), 0);
+                totalHeadshotHits.merge(name, headshotsGiven, Integer::sum);
 
-                // Track body part percentages for new achievements
-                int groinHitsPlayer = p.getHitsByBodyPart().getOrDefault(BodyPart.GROIN.value(), 0);
-                double groinPctPlayer = groinHitsPlayer * 100.0 / hitsGiven;
-                groinHitPct.merge(name, groinPctPlayer, Double::sum);
+                totalGroinHits.merge(name,
+                        p.getHitsByBodyPart().getOrDefault(BodyPart.GROIN.value(), 0), Integer::sum);
 
-                int buttHitsPlayer = p.getHitsByBodyPart().getOrDefault(BodyPart.BUTT.value(), 0);
-                double buttPctPlayer = buttHitsPlayer * 100.0 / hitsGiven;
-                buttHitPct.merge(name, buttPctPlayer, Double::sum);
+                totalButtHits.merge(name,
+                        p.getHitsByBodyPart().getOrDefault(BodyPart.BUTT.value(), 0), Integer::sum);
 
-                int feetHitsPlayer = p.getHitsByBodyPart().getOrDefault(BodyPart.LEFT_FOOT.value(), 0)
-                        + p.getHitsByBodyPart().getOrDefault(BodyPart.RIGHT_FOOT.value(), 0);
-                double feetPctPlayer = feetHitsPlayer * 100.0 / hitsGiven;
-                feetHitPct.merge(name, feetPctPlayer, Double::sum);
+                totalFeetHits.merge(name,
+                        p.getHitsByBodyPart().getOrDefault(BodyPart.LEFT_FOOT.value(), 0)
+                                + p.getHitsByBodyPart().getOrDefault(BodyPart.RIGHT_FOOT.value(), 0),
+                        Integer::sum);
+            }
+        }
+
+        // Compute final percentages from raw totals (only for players with at least 1 hit)
+        Map<String, Double> groinHitPct = new HashMap<>();
+        Map<String, Double> buttHitPct = new HashMap<>();
+        Map<String, Double> feetHitPct = new HashMap<>();
+        for (String name : totalHitsGiven.keySet()) {
+            int hits = totalHitsGiven.get(name);
+            if (hits > 0) {
+                headshotHits.put(name, totalHeadshotHits.getOrDefault(name, 0) * 100.0 / hits);
+                groinHitPct.put(name, totalGroinHits.getOrDefault(name, 0) * 100.0 / hits);
+                buttHitPct.put(name, totalButtHits.getOrDefault(name, 0) * 100.0 / hits);
+                feetHitPct.put(name, totalFeetHits.getOrDefault(name, 0) * 100.0 / hits);
             }
         }
 
@@ -911,6 +933,10 @@ public class HtmlGenerator {
                     continue;
                 }
                 String name = p.getName();
+                // Skip placeholder players created when an ID had no name mapping yet
+                if (name == null || name.isBlank() || name.equals("Unknown")) {
+                    continue;
+                }
                 gamesPlayed.put(name, gamesPlayed.getOrDefault(name, 0) + 1);
 
                 aggregated.putIfAbsent(name, new HashMap<>());
