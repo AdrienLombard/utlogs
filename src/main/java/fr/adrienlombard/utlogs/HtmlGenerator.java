@@ -674,6 +674,7 @@ public class HtmlGenerator {
                                 .summingInt(p -> p.getKillsByWeapon().getOrDefault("UT_MOD_G36", 0))))
                 .entrySet().stream()
                 .max(Map.Entry.comparingByValue())
+                .filter(e -> e.getValue() > 0)
                 .map(Map.Entry::getKey).orElse(null);
 
         // Best K/D (min 10 kills)
