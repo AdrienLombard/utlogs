@@ -634,7 +634,9 @@ div.d-block {
 
 .player-stats-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    /* Never more than 5 tiles per row: the first 5 tiles fill row 1, the flag time,
+       survival and achievement tiles (2 + 1 + 2 columns) fill row 2 */
+    grid-template-columns: repeat(auto-fit, minmax(max(200px, calc((100% - 60px) / 5)), 1fr));
     gap: 15px;
     margin-bottom: 20px;
 }
@@ -676,6 +678,110 @@ div.d-block {
 /* Achievement showcase in player card */
 .achievement-card {
     grid-column: span 2;
+}
+
+/* Flag capture times card: starts a new row and spans two columns */
+.flag-time-card {
+    grid-column: 1 / span 2;
+}
+
+.flag-time-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Speed track: gradient from fastest (left) to slowest (right) */
+.flag-track {
+    position: relative;
+    height: 8px;
+    margin: 22px 20px 14px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #00e676, #ffd600 55%, #ff5252);
+    box-shadow: 0 0 10px rgba(0, 230, 118, 0.25), 0 0 10px rgba(255, 82, 82, 0.2);
+}
+
+.flag-dot {
+    position: absolute;
+    top: 50%;
+    font-size: 1.1rem;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    cursor: help;
+    transition: transform 0.15s ease;
+}
+
+.flag-dot:hover {
+    transform: translate(-50%, -50%) scale(1.5);
+}
+
+.flag-end {
+    position: absolute;
+    top: 50%;
+    font-size: 1.6rem;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.35));
+    pointer-events: none;
+}
+
+.flag-end-fast {
+    left: 0;
+}
+
+.flag-end-slow {
+    left: 100%;
+}
+
+.flag-time-values {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.flag-time-value {
+    display: flex;
+    flex-direction: column;
+}
+
+.flag-time-value-right {
+    align-items: flex-end;
+}
+
+.flag-time-caption {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.flag-time-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.flag-time-fast {
+    color: #00e676;
+}
+
+.flag-time-slow {
+    color: #ff8a65;
+}
+
+.flag-time-summary {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+.flag-single {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.flag-single-icon {
+    font-size: 1.4rem;
 }
 
 .achievement-showcase {

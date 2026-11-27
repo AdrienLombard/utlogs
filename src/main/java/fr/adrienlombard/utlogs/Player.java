@@ -1,7 +1,11 @@
 package fr.adrienlombard.utlogs;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 
 public class Player {
     private String name;
@@ -28,6 +32,10 @@ public class Player {
     private final Map<String, Integer> deathsByKiller;
     private final Map<String, Integer> killsByWeapon;
     private final Map<String, Integer> hitsByBodyPart;
+    private final List<Integer> flagCaptureTimesMs;
+    private final List<Integer> survivalTimesSeconds;
+    private int assists;
+    private int flagDrops;
 
     public Player(String name) {
         this.name = name;
@@ -53,6 +61,10 @@ public class Player {
         this.deathsByKiller = new HashMap<>();
         this.killsByWeapon = new HashMap<>();
         this.hitsByBodyPart = new HashMap<>();
+        this.flagCaptureTimesMs = new ArrayList<>();
+        this.survivalTimesSeconds = new ArrayList<>();
+        this.assists = 0;
+        this.flagDrops = 0;
     }
 
     // Getters and Setters
@@ -132,6 +144,48 @@ public class Player {
 
     public void addFlagCapture() {
         this.flagCaptures++;
+    }
+
+    /**
+     * Records the time taken to capture a flag.
+     *
+     * @param timeMs capture time in milliseconds
+     */
+    public void addFlagCaptureTime(int timeMs) {
+        this.flagCaptureTimesMs.add(timeMs);
+    }
+
+    public List<Integer> getFlagCaptureTimesMs() {
+        return java.util.Collections.unmodifiableList(flagCaptureTimesMs);
+    }
+
+    public int getAssists() {
+        return assists;
+    }
+
+    public void addAssist() {
+        this.assists++;
+    }
+
+    public int getFlagDrops() {
+        return flagDrops;
+    }
+
+    public void addFlagDrop() {
+        this.flagDrops++;
+    }
+
+    /**
+     * Records the duration of one life (from spawn to death).
+     *
+     * @param seconds time spent alive, in seconds
+     */
+    public void addSurvivalTime(int seconds) {
+        this.survivalTimesSeconds.add(seconds);
+    }
+
+    public List<Integer> getSurvivalTimesSeconds() {
+        return java.util.Collections.unmodifiableList(survivalTimesSeconds);
     }
 
     public int getFlagReturns() {
