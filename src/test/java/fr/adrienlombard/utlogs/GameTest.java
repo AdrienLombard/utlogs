@@ -16,6 +16,24 @@ class GameTest {
     }
 
     @Test
+    public void testSpawnIsConsumedOnce() {
+        Game game = new Game();
+        assertNull(game.consumeSpawn("0"));
+
+        game.recordSpawn("0", 42);
+        assertEquals(42, game.consumeSpawn("0"));
+        assertNull(game.consumeSpawn("0"));
+    }
+
+    @Test
+    public void testLastSpawnWins() {
+        Game game = new Game();
+        game.recordSpawn("0", 10);
+        game.recordSpawn("0", 25);
+        assertEquals(25, game.consumeSpawn("0"));
+    }
+
+    @Test
     public void testSetMapName() {
         Game game = new Game();
         game.setMapName("ut4_test");

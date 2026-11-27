@@ -6,6 +6,66 @@ import static org.junit.jupiter.api.Assertions.*;
 class PlayerTest {
 
     @Test
+    public void testFlagCaptureTimes() {
+        Player player = new Player("TestPlayer");
+        assertTrue(player.getFlagCaptureTimesMs().isEmpty());
+
+        player.addFlagCaptureTime(17450);
+        player.addFlagCaptureTime(8000);
+
+        assertEquals(java.util.List.of(17450, 8000), player.getFlagCaptureTimesMs());
+        // Capture times do not affect the capture counter on their own
+        assertEquals(0, player.getFlagCaptures());
+    }
+
+    @Test
+    public void testFlagCaptureTimesAreUnmodifiable() {
+        Player player = new Player("TestPlayer");
+        player.addFlagCaptureTime(1000);
+        assertThrows(UnsupportedOperationException.class, () -> player.getFlagCaptureTimesMs().add(2000));
+    }
+
+    @Test
+    public void testAssists() {
+        Player player = new Player("TestPlayer");
+        assertEquals(0, player.getAssists());
+        player.addAssist();
+        player.addAssist();
+        assertEquals(2, player.getAssists());
+        // Assists do not count as kills
+        assertEquals(0, player.getKills());
+    }
+
+    @Test
+    public void testFlagDrops() {
+        Player player = new Player("TestPlayer");
+        assertEquals(0, player.getFlagDrops());
+        player.addFlagDrop();
+        assertEquals(1, player.getFlagDrops());
+        // Drops are independent from returns and captures
+        assertEquals(0, player.getFlagReturns());
+        assertEquals(0, player.getFlagCaptures());
+    }
+
+    @Test
+    public void testSurvivalTimes() {
+        Player player = new Player("TestPlayer");
+        assertTrue(player.getSurvivalTimesSeconds().isEmpty());
+        player.addSurvivalTime(35);
+        player.addSurvivalTime(5);
+        assertEquals(java.util.List.of(35, 5), player.getSurvivalTimesSeconds());
+        // Survival times do not affect the death counter on their own
+        assertEquals(0, player.getDeaths());
+    }
+
+    @Test
+    public void testSurvivalTimesAreUnmodifiable() {
+        Player player = new Player("TestPlayer");
+        player.addSurvivalTime(10);
+        assertThrows(UnsupportedOperationException.class, () -> player.getSurvivalTimesSeconds().add(20));
+    }
+
+    @Test
     public void testInitialState() {
         Player player = new Player("TestPlayer");
         assertEquals("TestPlayer", player.getName());
