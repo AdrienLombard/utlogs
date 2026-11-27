@@ -13,10 +13,12 @@ public class Game {
     private int redScore;
     private int blueScore;
     private int durationSeconds;
+    private final Map<String, Integer> spawnTimes; // Key: Player ID, Value: last spawn time (s)
 
     public Game() {
         this.players = new HashMap<>();
         this.idToName = new HashMap<>();
+        this.spawnTimes = new HashMap<>();
         this.totalKills = 0;
         this.mapName = "Unknown Map";
         this.gameType = "0"; // Default to FFA
@@ -73,6 +75,26 @@ public class Game {
      */
     public void registerPlayerId(String id, String name) {
         idToName.put(id, name);
+    }
+
+    /**
+     * Records the moment a player (re)spawned.
+     *
+     * @param id          The player ID from the log.
+     * @param timeSeconds Game time of the spawn, in seconds.
+     */
+    public void recordSpawn(String id, int timeSeconds) {
+        spawnTimes.put(id, timeSeconds);
+    }
+
+    /**
+     * Returns and forgets the last spawn time of a player.
+     *
+     * @param id The player ID from the log.
+     * @return The spawn time in seconds, or null if unknown.
+     */
+    public Integer consumeSpawn(String id) {
+        return spawnTimes.remove(id);
     }
 
     /**

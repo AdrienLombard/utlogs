@@ -23,6 +23,15 @@ public class HtmlGenerator {
     private static final double PERCENTAGE_FACTOR = 100.0;
     private static final int MIN_KILLS_FOR_SHARPSHOOTER = 10;
 
+    /** Minimum number of complete lives required to be eligible to the survivor badge. */
+    static final int MIN_LIVES_FOR_SURVIVOR = 5;
+
+    private static final int SECONDS_PER_MINUTE = 60;
+
+    /** Position range (in % of the track) used for intermediate flag capture dots. */
+    private static final double FLAG_DOT_MIN_PCT = 10.0;
+    private static final double FLAG_DOT_MAX_PCT = 90.0;
+
     /**
      * Assigns distinctive HSL colors to all unique players.
      * Uses golden angle to ensure colors are well-distributed.
@@ -305,10 +314,14 @@ public class HtmlGenerator {
                     Map<String, Integer> deathsBy = new HashMap<>();
                     Map<String, Integer> weapons = new HashMap<>();
                     Map<String, Integer> bodyPartHits = new HashMap<>();
+                    List<Integer> captureTimes = new ArrayList<>();
+                    List<Integer> survivalTimes = new ArrayList<>();
 
                     for (Game game : games) {
                         for (Player p : game.getPlayers().values()) {
                             if (p.getName().equals(playerName)) {
+                                captureTimes.addAll(p.getFlagCaptureTimesMs());
+                                survivalTimes.addAll(p.getSurvivalTimesSeconds());
                                 if (p.getTeam() != Team.SPECTATOR) {
                                     totalScore += (int) p.getScore();
                                     totalKills += p.getKills();
@@ -348,7 +361,8 @@ public class HtmlGenerator {
                             h2(playerName),
                             // Player stats cards (including victim/nemesis)
                             createPlayerStatsCards(totalScore, kdRatio, gamesPlayed, playerBadges,
-                                    favoriteVictim, favoriteVictimKills, nemesis, nemesisKills),
+                                    favoriteVictim, favoriteVictimKills, nemesis, nemesisKills,
+                                    captureTimes, survivalTimes),
                             // Performance timeline charts (score and K/D)
                             createPerformanceTimelineSection(tabId, scoresPerGame, killsPerGame, deathsPerGame),
                             // Body hit diagram section
@@ -384,8 +398,107 @@ public class HtmlGenerator {
                 })).withId("Users").withClass("tabcontent");
     }
 
+    /** Formats a capture time in milliseconds as seconds (e.g. "17.45 s"). */
+    private static String formatCaptureTime(int timeMs) {
+        return String.format(java.util.Locale.ROOT, "%.2f s", timeMs / 1000.0);
+    }
+
+    /**
+     * Builds the flag capture times card: a gradient "speed track" going from the
+     * fastest (rocket) to the slowest (turtle) capture, with one dot per
+     * intermediate capture, and the extreme values displayed underneath.
+     */
+    private DivTag createFlagTimeCard(List<Integer> captureTimes) {
+        int fastest = Collections.min(captureTimes);
+        int slowest = Collections.max(captureTimes);
+        double average = captureTimes.stream().mapToInt(Integer::intValue).average().orElse(0);
+        String summary = Messages.get("user.flagTimes.summary", captureTimes.size(),
+                formatCaptureTime((int) Math.round(average)));
+
+        DivTag body = div(div(text(Messages.get("user.flagTimes"))).withClass("card-label"));
+
+        if (fastest == slowest) {
+            // Single value (or identical times): no track to draw
+            body.with(
+                    div(
+                            span(text("🚀🐢")).withClass("flag-single-icon"),
+                            span(text(formatCaptureTime(fastest))).withClass("flag-time-number"))
+                            .withClass("flag-single"));
+        } else {
+            DivTag track = div().withClass("flag-track");
+            boolean fastestSkipped = false;
+            boolean slowestSkipped = false;
+            for (int time : captureTimes) {
+                // The extreme captures are represented by the rocket and the turtle
+                if (time == fastest && !fastestSkipped) {
+                    fastestSkipped = true;
+                    continue;
+                }
+                if (time == slowest && !slowestSkipped) {
+                    slowestSkipped = true;
+                    continue;
+                }
+                // Keep a margin so dots never sit under the rocket/turtle emojis
+                double pct = FLAG_DOT_MIN_PCT
+                        + (time - fastest) * (FLAG_DOT_MAX_PCT - FLAG_DOT_MIN_PCT) / (slowest - fastest);
+                track.with(span(text("🏁")).withClass("flag-dot")
+                        .withStyle(String.format(java.util.Locale.ROOT, "left:%.1f%%;", pct))
+                        .withTitle(formatCaptureTime(time)));
+            }
+            track.with(
+                    span(text("🚀")).withClass("flag-end flag-end-fast"),
+                    span(text("🐢")).withClass("flag-end flag-end-slow"));
+
+            body.with(
+                    track,
+                    div(
+                            div(
+                                    span(text(Messages.get("user.flagTimes.fastest"))).withClass("flag-time-caption"),
+                                    span(text(formatCaptureTime(fastest)))
+                                            .withClass("flag-time-number flag-time-fast"))
+                                    .withClass("flag-time-value"),
+                            div(
+                                    span(text(Messages.get("user.flagTimes.slowest"))).withClass("flag-time-caption"),
+                                    span(text(formatCaptureTime(slowest)))
+                                            .withClass("flag-time-number flag-time-slow"))
+                                    .withClass("flag-time-value flag-time-value-right"))
+                            .withClass("flag-time-values"));
+        }
+        body.with(div(text(summary)).withClass("flag-time-summary"));
+
+        return div(
+                div(text("🏁")).withClass("card-icon"),
+                body.withClass("flag-time-body"))
+                .withClass("player-stat-card flag-time-card");
+    }
+
+    /** Formats a survival duration in seconds (e.g. "34 s" or "1 min 05 s"). */
+    static String formatSurvivalTime(double seconds) {
+        int total = (int) Math.round(seconds);
+        if (total < SECONDS_PER_MINUTE) {
+            return total + " s";
+        }
+        return String.format(java.util.Locale.ROOT, "%d min %02d s", total / SECONDS_PER_MINUTE,
+                total % SECONDS_PER_MINUTE);
+    }
+
+    /** Builds the average survival time card (one life = spawn to death). */
+    private DivTag createSurvivalCard(List<Integer> survivalTimes) {
+        double average = survivalTimes.stream().mapToInt(Integer::intValue).average().orElse(0);
+        int longest = Collections.max(survivalTimes);
+        return div(
+                div(text("⏳")).withClass("card-icon"),
+                div(
+                        div(text(Messages.get("user.survival"))).withClass("card-label"),
+                        div(text(formatSurvivalTime(average))).withClass("card-value-small"),
+                        div(text(Messages.get("user.survival.summary", survivalTimes.size(),
+                                formatSurvivalTime(longest)))).withClass("flag-time-summary")))
+                .withClass("player-stat-card survival-card");
+    }
+
     private DivTag createPlayerStatsCards(int totalScore, double kdRatio, int gamesPlayed, List<String> badges,
-            String favoriteVictim, int favoriteVictimKills, String nemesis, int nemesisKills) {
+            String favoriteVictim, int favoriteVictimKills, String nemesis, int nemesisKills,
+            List<Integer> captureTimes, List<Integer> survivalTimes) {
         DivTag statsContainer = div().withClass("player-stats-container");
 
         // Add first 3 cards
@@ -423,6 +536,16 @@ public class HtmlGenerator {
                                 div(text(Messages.get("user.nemesis"))).withClass("card-label"),
                                 div(text(nemesis + " (" + nemesisKills + ")")).withClass("card-value-small")))
                         .withClass("player-stat-card"));
+
+        // Flag capture times card (only if the player has at least one capture with a known time)
+        if (!captureTimes.isEmpty()) {
+            statsContainer.with(createFlagTimeCard(captureTimes));
+        }
+
+        // Average survival time card (only if at least one complete life is known)
+        if (!survivalTimes.isEmpty()) {
+            statsContainer.with(createSurvivalCard(survivalTimes));
+        }
 
         // Only add achievement card if player has badges
         if (!badges.isEmpty()) {
@@ -470,6 +593,21 @@ public class HtmlGenerator {
                                                         break;
                                                     case "cassepieds":
                                                         icon = "🦶";
+                                                        break;
+                                                    case "noTimeToWaste":
+                                                        icon = "🚀";
+                                                        break;
+                                                    case "easyGoing":
+                                                        icon = "🐢";
+                                                        break;
+                                                    case "buddy":
+                                                        icon = "🤝";
+                                                        break;
+                                                    case "butterfingers":
+                                                        icon = "🧼";
+                                                        break;
+                                                    case "survivor":
+                                                        icon = "🏝️";
                                                         break;
                                                 }
                                                 String badgeName = Messages.get("badge." + badgeKey);
@@ -554,7 +692,7 @@ public class HtmlGenerator {
                 .withId(tableId);
     }
 
-    private Map<String, List<String>> calculateAchievements(List<Game> games) {
+    Map<String, List<String>> calculateAchievements(List<Game> games) {
         Map<String, List<String>> playerAchievements = new HashMap<>();
         Map<String, Integer> totalKills = new HashMap<>();
         Map<String, Integer> totalDeaths = new HashMap<>();
@@ -755,7 +893,94 @@ public class HtmlGenerator {
                     .add("cassepieds");
         }
 
+        // Flag capture speed: fastest and slowest single capture among all players
+        String fastestPlayer = null;
+        String slowestPlayer = null;
+        int fastestTime = Integer.MAX_VALUE;
+        int slowestTime = Integer.MIN_VALUE;
+        int totalCaptureTimes = 0;
+        for (Game game : games) {
+            for (Player p : game.getPlayers().values()) {
+                String name = p.getName();
+                if (p.getTeam() == Team.SPECTATOR || name == null || name.isBlank() || name.equals("Unknown")) {
+                    continue;
+                }
+                for (int time : p.getFlagCaptureTimesMs()) {
+                    totalCaptureTimes++;
+                    if (time < fastestTime) {
+                        fastestTime = time;
+                        fastestPlayer = name;
+                    }
+                    if (time > slowestTime) {
+                        slowestTime = time;
+                        slowestPlayer = name;
+                    }
+                }
+            }
+        }
+        // Only relevant when there are at least two captures to compare
+        if (totalCaptureTimes >= 2 && fastestTime != slowestTime) {
+            playerAchievements.computeIfAbsent(fastestPlayer, k -> new ArrayList<>())
+                    .add("noTimeToWaste");
+            playerAchievements.computeIfAbsent(slowestPlayer, k -> new ArrayList<>())
+                    .add("easyGoing");
+        }
+
+        // Copain !: most assists
+        String buddy = sumByPlayer(games, Player::getAssists).entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .filter(e -> e.getValue() > 0)
+                .map(Map.Entry::getKey).orElse(null);
+        if (buddy != null) {
+            playerAchievements.computeIfAbsent(buddy, k -> new ArrayList<>()).add("buddy");
+        }
+
+        // Mains en mousse: most dropped flags
+        String butterfingers = sumByPlayer(games, Player::getFlagDrops).entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .filter(e -> e.getValue() > 0)
+                .map(Map.Entry::getKey).orElse(null);
+        if (butterfingers != null) {
+            playerAchievements.computeIfAbsent(butterfingers, k -> new ArrayList<>()).add("butterfingers");
+        }
+
+        // Survivant: longest average life (minimum number of complete lives required)
+        Map<String, List<Integer>> survivalByPlayer = new HashMap<>();
+        for (Game game : games) {
+            for (Player p : game.getPlayers().values()) {
+                String name = p.getName();
+                if (p.getTeam() == Team.SPECTATOR || name == null || name.isBlank() || name.equals("Unknown")) {
+                    continue;
+                }
+                survivalByPlayer.computeIfAbsent(name, k -> new ArrayList<>()).addAll(p.getSurvivalTimesSeconds());
+            }
+        }
+        String survivor = survivalByPlayer.entrySet().stream()
+                .filter(e -> e.getValue().size() >= MIN_LIVES_FOR_SURVIVOR)
+                .max(Map.Entry.comparingByValue(
+                        java.util.Comparator.comparingDouble(
+                                (List<Integer> l) -> l.stream().mapToInt(Integer::intValue).average().orElse(0))))
+                .map(Map.Entry::getKey).orElse(null);
+        if (survivor != null) {
+            playerAchievements.computeIfAbsent(survivor, k -> new ArrayList<>()).add("survivor");
+        }
+
         return playerAchievements;
+    }
+
+    /** Sums an integer statistic per player name over all games (spectators and placeholders excluded). */
+    private Map<String, Integer> sumByPlayer(List<Game> games, java.util.function.ToIntFunction<Player> getter) {
+        Map<String, Integer> sums = new HashMap<>();
+        for (Game game : games) {
+            for (Player p : game.getPlayers().values()) {
+                String name = p.getName();
+                if (p.getTeam() == Team.SPECTATOR || name == null || name.isBlank() || name.equals("Unknown")) {
+                    continue;
+                }
+                sums.merge(name, getter.applyAsInt(p), Integer::sum);
+            }
+        }
+        return sums;
     }
 
     /**
@@ -949,6 +1174,12 @@ public class HtmlGenerator {
                 stats.merge("worldKills", (double) p.getKilledByWorld(), Double::sum);
                 stats.merge("flagCaptures", (double) p.getFlagCaptures(), Double::sum);
                 stats.merge("flagReturns", (double) p.getFlagReturns(), Double::sum);
+                stats.merge("assists", (double) p.getAssists(), Double::sum);
+                stats.merge("flagDrops", (double) p.getFlagDrops(), Double::sum);
+                stats.merge("survivalSum",
+                        (double) p.getSurvivalTimesSeconds().stream().mapToInt(Integer::intValue).sum(),
+                        Double::sum);
+                stats.merge("survivalCount", (double) p.getSurvivalTimesSeconds().size(), Double::sum);
                 stats.merge("teamKills", (double) p.getTeamKills(), Double::sum);
                 stats.merge("killedByTeammates", (double) p.getKilledByTeammates(), Double::sum);
                 stats.merge("hitsGiven", (double) p.getHitsGiven(), Double::sum);
@@ -1007,6 +1238,8 @@ public class HtmlGenerator {
         headers.add(thHeader(Messages.get("header.environmentDeaths"), col++, tableId));
         headers.add(thHeader(Messages.get("header.flagsCaptured"), col++, tableId));
         headers.add(thHeader(Messages.get("header.flagsReturned"), col++, tableId));
+        headers.add(thHeader(Messages.get("header.assists"), col++, tableId));
+        headers.add(thHeader(Messages.get("header.flagsDropped"), col++, tableId));
         headers.add(thHeader(Messages.get("header.teamKills"), col++, tableId));
         headers.add(thHeader(Messages.get("header.killedByTeam"), col++, tableId));
 
@@ -1021,6 +1254,7 @@ public class HtmlGenerator {
         headers.add(thHeader(Messages.get("header.killDeathRatio"), col++, tableId));
         headers.add(thHeader(Messages.get("header.bestKillStreak"), col++, tableId));
         headers.add(thHeader(Messages.get("header.worstDeathStreak"), col++, tableId));
+        headers.add(thHeader(Messages.get("header.avgSurvival"), col++, tableId));
         headers.add(thHeader(Messages.get("header.hitsGiven"), col++, tableId));
         headers.add(thHeader(Messages.get("header.hitsReceived"), col++, tableId));
         headers.add(thHeader(Messages.get("header.damageGiven"), col++, tableId));
@@ -1392,11 +1626,25 @@ public class HtmlGenerator {
                     case "cassepieds":
                         icon = "🦶";
                         break;
+                    case "noTimeToWaste":
+                        icon = "🚀";
+                        break;
+                    case "easyGoing":
+                        icon = "🐢";
+                        break;
+                    case "buddy":
+                        icon = "🤝";
+                        break;
+                    case "butterfingers":
+                        icon = "🧼";
+                        break;
+                    case "survivor":
+                        icon = "🏝️";
+                        break;
                 }
 
                 String badgeName = Messages.get("badge." + badgeKey);
                 String badgeDesc = Messages.get("badge." + badgeKey + ".desc");
-
                 badgesLine.with(
                         span(text(icon + " " + badgeName))
                                 .withClass("badge")
@@ -1421,6 +1669,8 @@ public class HtmlGenerator {
         cells.add(td(String.valueOf(stats.getOrDefault("worldKills", 0.0).intValue())));
         cells.add(td(String.valueOf(stats.getOrDefault("flagCaptures", 0.0).intValue())));
         cells.add(td(String.valueOf((int) flagReturns)));
+        cells.add(td(String.valueOf(stats.getOrDefault("assists", 0.0).intValue())));
+        cells.add(td(String.valueOf(stats.getOrDefault("flagDrops", 0.0).intValue())));
         cells.add(td(String.valueOf(stats.getOrDefault("teamKills", 0.0).intValue())));
         cells.add(td(
                 String.valueOf(stats.getOrDefault("killedByTeammates", 0.0).intValue())));
@@ -1438,6 +1688,9 @@ public class HtmlGenerator {
                 : totalKills / totalDeaths)));
         cells.add(td(String.valueOf(stats.getOrDefault("maxKillStreak", 0.0).intValue())));
         cells.add(td(String.valueOf(stats.getOrDefault("maxDeathStreak", 0.0).intValue())));
+        double survivalCount = stats.getOrDefault("survivalCount", 0.0);
+        cells.add(td(survivalCount == 0 ? "-"
+                : String.format("%.1f", stats.getOrDefault("survivalSum", 0.0) / survivalCount)));
         cells.add(td(String.valueOf(stats.getOrDefault("hitsGiven", 0.0).intValue())));
         cells.add(td(String.valueOf(stats.getOrDefault("hitsReceived", 0.0).intValue())));
         cells.add(td(String.valueOf(stats.getOrDefault("damageGiven", 0.0).intValue())));

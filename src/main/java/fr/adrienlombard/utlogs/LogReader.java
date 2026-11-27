@@ -31,6 +31,34 @@ public final class LogReader {
     /** Pattern to match flag events in the format "Flag: playerId actionId:". */
     private static final Pattern FLAG_PATTERN = Pattern.compile("Flag: (\\d+) (\\d+):");
 
+    /** Pattern to match flag capture time events "FlagCaptureTime: playerId: ms". */
+    private static final Pattern FLAG_CAPTURE_TIME_PATTERN = Pattern.compile("FlagCaptureTime: (\\d+): (\\d+)");
+
+    /** Marker for flag capture time events. */
+    private static final String FLAG_CAPTURE_TIME = "FlagCaptureTime:";
+
+    /** Pattern to match assist events "Assist: assistId killerId victimId: A assisted B to kill C". */
+    private static final Pattern ASSIST_PATTERN = Pattern
+            .compile("Assist: (\\d+) (\\d+) (\\d+): (.*?) assisted (.*?) to kill (.*)");
+
+    /** Pattern to match spawn events "ClientSpawn: playerId". */
+    private static final Pattern SPAWN_PATTERN = Pattern.compile("ClientSpawn: (\\d+)");
+
+    /** Marker for assist events. */
+    private static final String ASSIST = "Assist:";
+
+    /** Marker for spawn events. */
+    private static final String CLIENT_SPAWN = "ClientSpawn:";
+
+    /** Flag action id: the flag has been dropped. */
+    private static final int FLAG_ACTION_DROPPED = 0;
+
+    /** Flag action id: the flag has been returned. */
+    private static final int FLAG_ACTION_RETURNED = 1;
+
+    /** Flag action id: the flag has been captured. */
+    private static final int FLAG_ACTION_CAPTURED = 2;
+
     /** Pattern to match score events in the format "score: X ... client: Y". */
     private static final Pattern SCORE_PATTERN = Pattern.compile("score: (\\d+).*client: (\\d+)");
 
@@ -141,9 +169,15 @@ public final class LogReader {
                     if (line.contains(CLIENT_USERINFO_CHANGED) && !endGame) {
                         parseUserInfo(currentGame, line);
                     } else if (line.contains(KILL) && !endGame) {
-                        parseKill(currentGame, line);
+                        parseKill(currentGame, line, currentTime);
                     } else if (line.contains(HIT) && !endGame) {
                         parseHit(currentGame, line);
+                    } else if (line.contains(ASSIST) && !endGame) {
+                        parseAssist(currentGame, line);
+                    } else if (line.contains(CLIENT_SPAWN) && !endGame) {
+                        parseSpawn(currentGame, line, currentTime);
+                    } else if (line.contains(FLAG_CAPTURE_TIME) && !endGame) {
+                        parseFlagCaptureTime(currentGame, line);
                     } else if (line.contains(FLAG) && !endGame) {
                         parseFlag(currentGame, line);
                     } else if (line.contains(SCORE)) {
@@ -250,8 +284,9 @@ public final class LogReader {
      *
      * @param game the current game session
      * @param line the log line containing kill data
+     * @param time the game time (in seconds) of the event, or -1 if unknown
      */
-    private void parseKill(final Game game, final String line) {
+    private void parseKill(final Game game, final String line, final int time) {
         Matcher matcher = KILL_PATTERN.matcher(line);
         if (matcher.find()) {
             game.addKill();
@@ -263,6 +298,8 @@ public final class LogReader {
             String victimName = matcher.group(5);
 
             Player victim = game.getPlayerByName(victimName);
+            // The victim's current life ends here, whatever the cause
+            Integer spawnTime = game.consumeSpawn(victimId);
 
             boolean isWorldKill = WORLD_KILL_ID.equals(killerId) || "<world>".equals(killerName)
                     || "<non-client>".equals(killerName);
@@ -275,8 +312,10 @@ public final class LogReader {
 
             if (isWorldKill) {
                 victim.addKilledByWorld();
+                recordSurvival(victim, spawnTime, time);
             } else if (!MOD_CHANGE_TEAM_ID.equals(weaponId) && !FLAG_EXPLOSION_ID.equals(weaponId)
                     && !MOD_KICKED_NAME.equals(weaponName)) {
+                recordSurvival(victim, spawnTime, time);
                 if (killerId.equals(victimId) || killerName.equals(victimName)) {
                     // Suicide
                     victim.addSuicide();
@@ -304,6 +343,47 @@ public final class LogReader {
             }
         }
 
+    }
+
+    /**
+     * Records the duration of a life when both the spawn and the death times are
+     * known.
+     *
+     * @param victim    the player who just died
+     * @param spawnTime the time of his last spawn, or null if unknown
+     * @param deathTime the time of his death, or -1 if unknown
+     */
+    private void recordSurvival(final Player victim, final Integer spawnTime, final int deathTime) {
+        if (spawnTime != null && deathTime >= spawnTime) {
+            victim.addSurvivalTime(deathTime - spawnTime);
+        }
+    }
+
+    /**
+     * Parses an Assist line to credit the assisting player.
+     *
+     * @param game the current game session
+     * @param line the log line containing assist data
+     */
+    private void parseAssist(final Game game, final String line) {
+        Matcher matcher = ASSIST_PATTERN.matcher(line);
+        if (matcher.find()) {
+            game.getPlayerByName(matcher.group(4)).addAssist();
+        }
+    }
+
+    /**
+     * Parses a ClientSpawn line to remember when a player (re)spawned.
+     *
+     * @param game the current game session
+     * @param line the log line containing spawn data
+     * @param time the game time (in seconds) of the event, or -1 if unknown
+     */
+    private void parseSpawn(final Game game, final String line, final int time) {
+        Matcher matcher = SPAWN_PATTERN.matcher(line);
+        if (matcher.find() && time >= 0) {
+            game.recordSpawn(matcher.group(1), time);
+        }
     }
 
     /**
@@ -371,10 +451,31 @@ public final class LogReader {
             }
             Player player = game.getPlayerById(clientId);
 
-            if (action == 1) {
+            if (action == FLAG_ACTION_RETURNED) {
                 player.addFlagReturn();
-            } else if (action == 2) {
+            } else if (action == FLAG_ACTION_CAPTURED) {
                 player.addFlagCapture();
+            } else if (action == FLAG_ACTION_DROPPED) {
+                player.addFlagDrop();
+            }
+        }
+    }
+
+    /**
+     * Parses a FlagCaptureTime line to record the time (in ms) taken to capture a
+     * flag.
+     *
+     * @param game the current game session
+     * @param line the log line containing the capture time
+     */
+    private void parseFlagCaptureTime(final Game game, final String line) {
+        Matcher matcher = FLAG_CAPTURE_TIME_PATTERN.matcher(line);
+        if (matcher.find()) {
+            try {
+                int timeMs = Integer.parseInt(matcher.group(2));
+                game.getPlayerById(matcher.group(1)).addFlagCaptureTime(timeMs);
+            } catch (NumberFormatException e) {
+                // Ignore malformed values
             }
         }
     }
